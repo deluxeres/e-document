@@ -1,8 +1,9 @@
 import React, {useState, useEffect} from 'react'
-import girlPass from '../img/girl.png'
-
+import {useSelector, useDispatch} from 'react-redux'
 
 function Card() {
+
+    const dispatch = useDispatch()
 
     const [item, setItem] = useState([])
 
@@ -15,6 +16,8 @@ function Card() {
             setItem(json);
           });
       }, []);
+
+
 
     // console.log(item);
 
