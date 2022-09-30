@@ -113,6 +113,67 @@ li {
   }
 }
 
+
+
+label {
+  -webkit-perspective: 1000px;
+  perspective: 1000px;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  display: block;
+  cursor: pointer;
+}
+
+.card .card-wrapper .card-back {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  background: #FFF;
+  text-align: center;
+  line-height: 200px;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: 2px;
+}
+
+.card .card-back {
+  background: #ffffff;
+  color: rgb(0, 0, 0);
+  transform: rotateX(180deg);
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0%;
+  border: 2px dashed #000;
+  border-radius: 60px;
+  -webkit-transform: rotateX(180deg);
+  -moz-transform: rotateX(180deg);
+  -ms-transform: rotateX(180deg);
+  -o-transform: rotateX(180deg);
+}
+
+.card-back {
+  display: none;
+}
+
+input {
+  outline: none;
+}
+
+.card-input {
+  display: none;
+}
+
+:checked + .card {
+  transform: rotateX(180deg);
+  -webkit-transform: rotateX(180deg);
+
+  .card-back {
+    display: block;
+  }
+}
+
+
 .card {
   width: 365px;
   height: 475px;
@@ -120,6 +181,11 @@ li {
   background: rgba(255, 255, 255, 0.9);
   border: 2px dashed #000000;
   border-radius: 60px;
+
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  -webkit-transition: all 600ms;
+  transition: all 600ms;
 
   .card-wrapper {
     padding: 25px 35px;

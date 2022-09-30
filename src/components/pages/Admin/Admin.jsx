@@ -1,24 +1,29 @@
 import React, {useState, useEffect} from 'react'
 import {useNavigate } from 'react-router-dom'
-import {useSelector, useDispatch} from 'react-redux'
-import {  
-    decrement,
-    increment,
-    incrementByAmount,
-    incrementAsync,
-    selectData,
-} from '../../reducers/dataSlice'
+
+import { store } from '../Admin/store'
 
 function Admin() {
 
-    const data = useSelector(selectData);
-    const dispatch = useDispatch();
+    // useEffect(()=> {
+    //     localStorage.setItem('items', JSON.stringify(store.data));
+    // })
+
+    // const [object, setObject] = useState(
+    //     setObject()
+    // )
 
     const navigate = useNavigate();
 
     const formSave = ()=> {
-        alert('Форма була збережена')
-        console.log(inputName, inputSurname, inputPatric, inputSex);        
+        store({type: 'changeInputName', data: inputName}); 
+        store({type: 'changeInputSurname', data: inputSurname});
+        store({type: 'changeInputPatric', data: inputPatric});
+        store({type: 'changeInputSex', data: inputSex});
+        store({type: 'changeInputBirth', data: inputBirth});
+        store({type: 'changeInputExpiry', data: inputExpiry});
+        store({type: 'changeInputPhoto', data: inputPhoto});  
+        store({type: 'changeInputCountry', data: inputCountry}); 
     }
 
     const formBack = ()=> {
@@ -26,10 +31,15 @@ function Admin() {
     }
 
 
+
     const [inputName, setInputName] = useState('')
     const [inputSurname, setInputSurname] = useState('')
     const [inputPatric, setInputPatric] = useState('')
     const [inputSex, setInputSex] = useState('')
+    const [inputBirth, setinputBirth] = useState('')
+    const [inputExpiry, setinputExpiry] = useState('')
+    const [inputPhoto, setinputPhoto] = useState('')
+    const [inputCountry, setinputCountry] = useState('')
 
   return (
     <div className='admin'>
@@ -56,23 +66,23 @@ function Admin() {
                     </div>
                     <div className='admin-form__block'>
                         <p>Date of birth</p>
-                        <input className="admin-input" type='text' placeholder='Введiть значення'/>
+                        <input className="admin-input" type='text' placeholder='Введiть значення' value={inputBirth} onChange={(e)=> setinputBirth(e.target.value)}/>
                     </div>
                     <div className='admin-form__block'>
                         <p>Expiry date</p>
-                        <input className="admin-input" type='text' placeholder='Введiть значення'/>
+                        <input className="admin-input" type='text' placeholder='Введiть значення' value={inputExpiry} onChange={(e)=> setinputExpiry(e.target.value)}/>
                     </div>
                     <div className='admin-form__block'>
                         <p>Photo</p>
-                        <input className="admin-input" type='text' placeholder='Введiть значення'/>
+                        <input className="admin-input" type='text' placeholder='Введiть значення' value={inputPhoto} onChange={(e)=> setinputPhoto(e.target.value)}/>
                     </div>
                     <div className='admin-form__block'>
                         <p>Country</p>
-                        <input className="admin-input" type='text' placeholder='Введiть значення'/>
+                        <input className="admin-input" type='text' placeholder='Введiть значення' value={inputCountry} onChange={(e)=> setinputCountry(e.target.value)}/>
                     </div>
                 </div>
                 <div className='admin-form__button'>
-                    <button onClick={dispatch(incrementByAmount(String(inputName) || ''))}>Зберегти</button>
+                    <button onClick={formSave}>Зберегти</button>
                     <button onClick={formBack}>На головну</button>
                 </div>
             </div>

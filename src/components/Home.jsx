@@ -7,7 +7,10 @@ function Home() {
       <span className='page-title'>Вітаємо на платформі<span className='emp'> E-pass </span>!</span>
 
       <div className='wrapper'>
+      <label>
+        <input type="checkbox" className='card-input' />
         <Card />
+      </label>
       </div>
     </div>
   )
