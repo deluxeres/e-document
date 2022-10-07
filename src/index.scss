@@ -373,8 +373,22 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
-  .admin-wrapper {
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 80%;
+    margin: 0 auto;
+  }
+
+  .tabs {
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .admin-wrapper {
+    width: 100%;
     height: auto;
     background: #FFFFFF;
     box-shadow: 0px 5px 15px 1px rgba(0, 0, 0, 0.08);
@@ -422,7 +436,7 @@ input {
         padding-left: 20px;
       }
       .admin-form__block {
-        margin: 0px 50px 40px 50px;
+        margin: 0px 50px 20px 30px;
       }
     }
     .admin-form__button {

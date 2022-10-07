@@ -1,12 +1,20 @@
 const state = {
-  inputName: "Им'я",
-  inputSurname: "Прiзвище",
-  inputPatric: "По батьковi",
-  inputSex: "Чоловiк/Жiнка",
-  inputBirth: "Дата народження",
-  inputExpiry: "Дата завершення",
-  inputPhoto: "https://i.ibb.co/F6yN0mL/depositphotos-51402215-stock-illustration-male-avatar-profile-picture-use.webp",
-  inputCountry: "STATE"  
+  inputName: "Не задано",
+  inputSurname: "Не задано",
+  inputPatric: "Не задано",
+  inputSex: "Не задано",
+  inputBirth: "Не задано",
+  inputExpiry: "Не задано",
+  inputPhoto: "https://image.jimcdn.com/app/cms/image/transf/none/path/sf54a6dcd61ce200c/image/i356ee186367af551/version/1637349326/image.jpg",
+  inputCountry: "Ukraine",
+  inputVodName: "Не задано",
+  inputVodSurname: "Не задано",
+  inputVodPatric: "Не задано", 
+  inputVodCategory: "Не задано", 
+  inputVodDown: "Не задано",
+  inputVodNumber: "Не задано",
+  inputVodPhoto: "https://avatars.mds.yandex.net/get-altay/2056672/2a0000016bfdf77e48670fc388fa3716096c/XXL",
+  inputVodCountry: "Ukraine",
 };
 
 /**
@@ -42,7 +50,32 @@ function store(action) {
       return { ...state };
     case "changeInputCountry":
       state.inputCountry = action.data;
+      // водительское
       return { ...state };
+    case "changeInputVodName":
+      state.inputVodName = action.data;
+      return { ...state };
+    case "changeInputVodSurname":
+      state.inputVodSurname = action.data;
+        return { ...state };
+    case "changeInputVodPatric":
+      state.inputVodPatric = action.data;
+        return { ...state };
+    case "changeInputVodCategory":
+        state.inputVodCategory = action.data;
+        return { ...state };
+    case "changeInputVodDown":
+        state.inputVodDown = action.data;
+        return { ...state };
+    case "changeInputVodNumber":
+        state.inputVodNumber = action.data;
+        return { ...state };
+    case "changeInputVodPhoto":
+        state.inputVodPhoto = action.data;
+        return { ...state };
+    case "changeInputVodCountry":
+        state.inputVodCountry = action.data;
+        return { ...state };
     default:
       return { ...state };
   }

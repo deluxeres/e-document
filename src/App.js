@@ -3,6 +3,7 @@ import Header from './components/Header'
 import {Routes, Route, Link} from 'react-router-dom'
 import Login from './components/pages/Login'
 import Admin from "./components/pages/Admin/Admin"
+import Video from './components/Video'
 import './index.scss'
 
 function App() {
@@ -17,6 +18,9 @@ function App() {
         </Routes>
         <Routes>
           <Route path="/admin" element={<Admin />} />
+        </Routes>
+        <Routes>
+          <Route path="/video" element={<Video />} />
         </Routes>
     </div>
   );

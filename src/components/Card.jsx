@@ -33,6 +33,7 @@ function Card() {
       <div className="card-wrapper">
         <div className="card-header">
           <span className="card-country">{string.inputCountry}</span>
+          <p>Паспорт</p>
         </div>
         <div className="card-general">
           <div className="card-info__top">
@@ -75,30 +76,30 @@ function Card() {
       <div className="card-back">
         <div className="card-wrapper">
           <div className="card-header">
-            <span className="card-country">{string.inputCountry}</span>
+            <span className="card-country">{string.inputVodCountry}</span>
             <p>Посвідчення водія</p>
           </div>
           <div className="card-general">
             <div className="card-info__top">
               <div className="card-info__img">
-                <img src={string.inputPhoto} alt="img" />
+                <img src={string.inputVodPhoto} alt="img" />
               </div>
               <div className="card-info__text">
                 <div className="card-info__text__birth">
                   <span className="card-info__title">Категорії</span>
                   <span className="card-info__subtitle">
-                    {string.inputBirth}
+                    {string.inputVodCategory}
                   </span>
                 </div>
                 <div className="card-info__text__expiry">
                   <span className="card-info__title">Видано</span>
                   <span className="card-info__subtitle">
-                    {string.inputExpiry}
+                    {string.inputVodDown}
                   </span>
                 </div>
                 <div className="card-info__text__sex">
                   <span className="card-info__title">Номер</span>
-                  <span className="card-info__subtitle">{string.inputSex}</span>
+                  <span className="card-info__subtitle">{string.inputVodNumber}</span>
                 </div>
               </div>
             </div>
@@ -106,17 +107,17 @@ function Card() {
               <div className="card-info__text__surname">
                 <span className="card-info__title">Прiзвище</span>
                 <span className="card-info__subtitle">
-                  {string.inputSurname}
+                  {string.inputVodSurname}
                 </span>
               </div>
               <div className="card-info__text__name">
                 <span className="card-info__title">Iм’я/Name</span>
-                <span className="card-info__subtitle">{string.inputName}</span>
+                <span className="card-info__subtitle">{string.inputVodName}</span>
               </div>
               <div className="card-info__text__patronimyc">
                 <span className="card-info__title">По батьковi/Patronimyc</span>
                 <span className="card-info__subtitle">
-                  {string.inputPatric}
+                  {string.inputVodPatric}
                 </span>
               </div>
             </div>

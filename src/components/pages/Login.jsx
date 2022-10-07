@@ -8,7 +8,6 @@ function Login() {
   const navigate = useNavigate();
 
   const handleClick = ()=> {
-    console.log('223');
     navigate('/home')
   }
 
