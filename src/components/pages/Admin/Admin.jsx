@@ -79,12 +79,12 @@ function Admin() {
 
     <div className='row'>
     <Tabs variant='soft-rounded' colorScheme='blue' className="tabs">
-            <TabList>
+            <TabList style={{marginBottom: "15px"}}>
                 <Tab>Паспорт</Tab>
                 <Tab>Вод.права</Tab>
             </TabList>
             <TabPanels>
-                <TabPanel>
+                <TabPanel style={{padding: "0"}}>
                 <div className='admin-wrapper'>
                 <span className='admin-wrapper__title'>Admin e-panel</span>
                     <span className='admin-wrapper__subtitle'>📇 Паспорт</span>
@@ -130,7 +130,7 @@ function Admin() {
                     </div>
                 </div>
                 </TabPanel>
-                <TabPanel>
+                <TabPanel style={{padding: "0"}}>
                 <div className='admin-wrapper'>
                 <span className='admin-wrapper__title'>Admin e-panel</span>
                     <span className='admin-wrapper__subtitle'>🚔 Водійські права</span>

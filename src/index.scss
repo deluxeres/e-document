@@ -320,7 +320,6 @@ input {
         font-size: 15px;
         line-height: 18px;
         color: #000000;
-        width: 470px;
         border: none;
         outline: none;
         height: 50px;
@@ -463,5 +462,43 @@ input {
         }
       }
     }
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .header {
+    margin-bottom: 40px;
+  }
+  .login .login-wrapper {
+    width: 95%;
+  }
+  .chakra-input .css-1kp110w {
+    width: 100%;
+  }
+  .home .page-title {
+    font-size: 25px;
+    color: #000;
+    font-weight: bold;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+  }
+  .home .emp {
+    font-size: 23px;
+    color: #000;
+    font-weight: 400;
+    font-family: 'Kufam';
+  }
+  .home .wrapper {
+    margin-top: 50px;
+  }
+  .admin .admin-wrapper .admin-form__container {
+    justify-content: center;
+  }
+  .admin .admin-wrapper {
+    padding: 35px 0px;
+  }
+  .chakra-tabs__tab-panel {
+    padding: 0;
   }
 }
