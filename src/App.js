@@ -5,6 +5,7 @@ import Login from './components/pages/Login'
 import Admin from "./components/pages/Admin/Admin"
 import Video from './components/Video'
 import './index.scss'
+import Welcome from './components/pages/Welcome/Welcome'
 
 function App() {
   return (
@@ -21,6 +22,9 @@ function App() {
         </Routes>
         <Routes>
           <Route path="/video" element={<Video />} />
+        </Routes>
+        <Routes>
+          <Route path="/welcome" element={<Welcome />} />
         </Routes>
     </div>
   );

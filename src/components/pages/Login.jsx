@@ -1,4 +1,4 @@
-import React, {useState} from 'react'
+import React, {useState, useEffect} from 'react'
 import {Link, useNavigate } from 'react-router-dom'
 import {Input, InputGroup, InputLeftAddon} from '@chakra-ui/react'
 
@@ -15,12 +15,12 @@ function Login() {
     <div className='login'>
       <div className='login-wrapper'>
         <div className='login-container'>
-            <span className='login-title'>👋 Вiйти до собистого кабiнету</span>
+            <span className='login-title'>👋 Особистий кабiнет</span>
             <span className='login-subtitle'>E-document</span>
           <div className='login-form'>
           <InputGroup>
             <InputLeftAddon children='+380' className="inputAdd"/>
-            <Input className="inputNumber" placeholder='95 000 41 51' maxLength="9" />
+            <Input className="inputNumber" placeholder='95 000 41 51' maxLength="9" style={{paddingLeft: "5px", outline: "none", border: "none"}}/>
           </InputGroup>
           <Input placeholder='Ваш пароль' maxLength="40" type="password" />
           </div>

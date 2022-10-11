@@ -7,13 +7,10 @@ import { store } from '../Admin/store'
 
 function Admin() {
 
-    // useEffect(()=> {
-    //     localStorage.setItem('items', JSON.stringify(store.data));
-    // })
 
-    // const [object, setObject] = useState(
-    //     setObject()
-    // )
+    useEffect(()=> {
+        document.title = "Admin panel - Navigation"
+    }, [])
 
     const navigate = useNavigate();
 
