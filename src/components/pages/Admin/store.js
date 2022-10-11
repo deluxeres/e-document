@@ -1,4 +1,5 @@
 const state = {
+  inputFlag: "UA |",
   inputName: "Не задано",
   inputSurname: "Не задано",
   inputPatric: "Не задано",
@@ -27,6 +28,9 @@ const state = {
 
 function store(action) {
   switch (action.type) {
+    case "changeInputFlag":
+      state.inputFlag = action.data;
+      return { ...state };
     case "changeInputName":
       state.inputName = action.data;
       return { ...state };

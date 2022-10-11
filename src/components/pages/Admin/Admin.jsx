@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react'
 import {useNavigate } from 'react-router-dom'
 import { useToast } from '@chakra-ui/react'
 import { Tabs, TabList, TabPanels, Tab, TabPanel } from '@chakra-ui/react'
+import { Select } from '@chakra-ui/react'
 
 import { store } from '../Admin/store'
 
@@ -18,6 +19,7 @@ function Admin() {
 
 
     const formSave = ()=> {
+        store({type: 'changeInputFlag', data: inputFlag}); 
         store({type: 'changeInputName', data: inputName}); 
         store({type: 'changeInputSurname', data: inputSurname});
         store({type: 'changeInputPatric', data: inputPatric});
@@ -51,7 +53,7 @@ function Admin() {
     }
 
 
-
+    const [inputFlag, setInputFlag] = useState('')
     const [inputName, setInputName] = useState('')
     const [inputSurname, setInputSurname] = useState('')
     const [inputPatric, setInputPatric] = useState('')
@@ -87,6 +89,10 @@ function Admin() {
                     <span className='admin-wrapper__subtitle'>📇 Паспорт</span>
                     <div className='admin-form'>
                         <div className='admin-form__container'>
+                            <div className='admin-form__block'>
+                                <p>Flag</p>
+                                <input className="admin-input" type='text' placeholder='Введiть значення' value={inputFlag} onChange={(e)=> setInputFlag(e.target.value)}/>
+                            </div> 
                             <div className='admin-form__block'>
                                 <p>Name</p>
                                 <input className="admin-input" type='text' placeholder='Введiть значення' value={inputName} onChange={(e)=> setInputName(e.target.value)}/>

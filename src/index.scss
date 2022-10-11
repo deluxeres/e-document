@@ -35,7 +35,7 @@ li {
   background-color: #000;
   height: 80px;
   width: 100%;
-  margin-bottom: 100px;
+  margin-bottom: 60px;
 
   &__container {
     width: 80%;
@@ -94,13 +94,13 @@ li {
   flex-direction: column;
 
   .page-title {
-    font-size: 32px;
+    font-size: 42px;
     color: #000;
     font-weight: bold;
     text-align: center;
   }
   .emp {
-    font-size: 32px;
+    font-size: 42px;
     color: #000;
     font-weight: 400;
     font-family: 'Kufam';
@@ -467,6 +467,7 @@ input {
     }
   }
 }
+
 
 @media screen and (max-width: 768px) {
   .header {
