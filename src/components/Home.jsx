@@ -13,7 +13,6 @@ function Home() {
 
       <div className='wrapper'>
       <label>
-        <input type="checkbox" className='card-input' />
         <Card />
       </label>
       </div>

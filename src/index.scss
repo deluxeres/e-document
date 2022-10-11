@@ -71,6 +71,21 @@ li {
     }
   }
 
+  .logotypeBlock {
+    display: flex;
+    align-items: center;
+
+    span {
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 400;
+      margin-left: 10px;
+      border-left: 1px solid #fff;
+      padding-left: 10px;
+      height: 100%;
+    }
+  }
+
   .logo {
     width: 55px;
     height: 55px;
@@ -116,12 +131,7 @@ li {
 
 
 label {
-  -webkit-perspective: 1000px;
-  perspective: 1000px;
-  -webkit-transform-style: preserve-3d;
-  transform-style: preserve-3d;
-  display: block;
-  cursor: pointer;
+  width: 100%;
 }
 
 .card .card-wrapper .card-back {

@@ -46,10 +46,12 @@ function Admin() {
           duration: 3000,
           isClosable: true,
         })
+
+        navigate('/home')
     }
 
     const formBack = ()=> {
-        navigate('/')
+        navigate('/home')
     }
 
 
