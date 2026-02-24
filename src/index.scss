@@ -9,9 +9,8 @@ body {
   font-family: 'Inter', sans-serif, 'Kufam';
 }
 
-* {
-  margin: 0;
-  padding: 0;
+html {
+  background-color: #e0faff;
 }
 
 a {
@@ -20,12 +19,6 @@ a {
 
 li {
   list-style: none;
-}
-
-.App {
-  width: 100%;
-  height: 100vh;
-  background-color: #e0faff;
 }
 
 .header {
@@ -201,10 +194,10 @@ input {
   transition: all 600ms;
 
   .card-wrapper {
-    padding: 25px 35px;
+    padding: 25px;
 
     .card-header {
-      margin-bottom: 15px;
+      margin-bottom: 30px;
       text-align: center;
       .card-country {
         font-weight: 700;
@@ -219,7 +212,7 @@ input {
         align-items: center;
         justify-content: space-between;
         flex-direction: row;
-        margin-bottom: 45px;
+        margin-bottom: 30px;
         .card-info__img {
           width: 130px;
           height: 165px;
@@ -282,7 +275,6 @@ input {
   .login-wrapper {
     background-color: #fff;
     width: 595px;
-    height: 595px;
     box-shadow: 0px 5px 15px 1px rgba(0, 0, 0, 0.08);
     border-radius: 30px;
     -webkit-border-radius: 30px;
@@ -292,7 +284,7 @@ input {
   }
 
   .login-container {
-    padding: 60px;
+    padding: 30px;
 
     .login-title {
       font-family: 'Inter';
@@ -359,8 +351,7 @@ input {
       button {
         background: #000000;
         border-radius: 17.5px;
-        width: 140px;
-        height: 40px;
+        padding: 12px;
         font-family: 'Inter';
         font-style: normal;
         font-weight: 400;

@@ -1,33 +1,28 @@
 import Home from './components/Home'
 import Header from './components/Header'
-import {Routes, Route, Link} from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import Login from './components/pages/Login'
-import Admin from "./components/pages/Admin/Admin"
-import Video from './components/Video'
+import ProtectedRoute from './components/ProtectedRoute'
+import Registration from './components/pages/Registration';
 import './index.scss'
-import Welcome from './components/pages/Welcome/Welcome'
+import {Toaster} from "./components/ui/toaster";
 
 function App() {
-  return (
-    <div className="App">
-        <Header />
-        <Routes>
-          <Route path="/home" element={<Home />} />
-        </Routes>
-        <Routes>
-          <Route path="/" element={<Login />} />
-        </Routes>
-        <Routes>
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
-        <Routes>
-          <Route path="/video" element={<Video />} />
-        </Routes>
-        <Routes>
-          <Route path="/welcome" element={<Welcome />} />
-        </Routes>
-    </div>
-  );
+    return (
+        <div className="App">
+            <Toaster />
+            <Header />
+            <Routes>
+                <Route path="/" element={<Login />} />
+                <Route path="/home" element={
+                    <ProtectedRoute>
+                        <Home />
+                    </ProtectedRoute>
+                }/>
+                <Route path="/register" element={<Registration />} />
+            </Routes>
+        </div>
+    );
 }
 
-export default App
+export default App;
