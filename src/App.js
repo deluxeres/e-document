@@ -5,7 +5,8 @@ import Login from "./components/pages/Login";
 import Main from "./components/pages/Main";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Registration from "./components/pages/Registration";
-import Profile from "./components/pages/Profile"; // 1. Импортируем профиль
+import Profile from "./components/pages/Profile";
+import ShareCard from "./components/pages/ShareCard"; // Импортируем новую страницу
 import "./index.scss";
 import { Toaster } from "./components/ui/toaster";
 
@@ -19,6 +20,8 @@ function App() {
         <Route path="/" element={<Main />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Registration />} />
+
+        <Route path="/share/doc/:id" element={<ShareCard />} />
 
         <Route
           path="/home"

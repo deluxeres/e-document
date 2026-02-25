@@ -416,4 +416,69 @@ app.put("/users/:id/password", (req, res) => {
   });
 });
 
+app.get("/public-document/:documentId", (req, res) => {
+  const { documentId } = req.params;
+
+  const sql = `
+    SELECT ud.id, ud.type_id, dt.name as type_name, ud.status,
+           u.name as user_name, u.surname as user_surname, u.patronymic as user_patronymic, 
+           u.photo_url as user_photo, u.birth_date as user_birth,
+           dic.number as id_number, dic.authority as id_auth, dic.issue_date as id_iss, dic.expiry_date as id_exp, dic.country as id_cnt,
+           dp.series as pass_ser, dp.number as pass_num, dp.issued_by as pass_auth, dp.issue_date as pass_iss,
+           dl.number as lic_num, dl.categories as lic_cat, dl.issue_date as lic_iss, dl.expiry_date as lic_exp,
+           drp.number as res_num, drp.tax_id as res_tax, drp.country as res_cnt, drp.authority as res_auth, drp.issue_date as res_iss, drp.expiry_date as res_exp,
+           dip.number as int_num, dip.tax_id as int_tax, dip.country as int_cnt, dip.authority as int_auth, dip.issue_date as int_iss, dip.expiry_date as int_exp
+    FROM user_documents ud
+           JOIN users u ON ud.user_id = u.id
+           JOIN document_types dt ON ud.type_id = dt.id
+           LEFT JOIN doc_id_cards dic ON ud.id = dic.document_id
+           LEFT JOIN doc_passports_old dp ON ud.id = dp.document_id
+           LEFT JOIN doc_driver_licenses dl ON ud.id = dl.document_id
+           LEFT JOIN doc_residence_permits drp ON ud.id = drp.document_id
+           LEFT JOIN doc_international_passports dip ON ud.id = dip.document_id
+    WHERE ud.id = ?
+  `;
+
+  db.get(sql, [documentId], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: "Документ не знайдено" });
+
+    const result = {
+      id: row.id,
+      type_id: row.type_id,
+      status: row.status,
+      type: { id: row.type_id, name: row.type_name },
+      display_number:
+        row.id_number ||
+        row.pass_num ||
+        row.lic_num ||
+        row.res_num ||
+        row.int_num,
+      display_authority:
+        row.id_auth || row.pass_auth || row.res_auth || row.int_auth,
+      display_country: row.id_cnt || row.res_cnt || row.int_cnt || "УКРАЇНА",
+      issue_date:
+        row.id_iss || row.pass_iss || row.lic_iss || row.res_iss || row.int_iss,
+      expiry_date:
+        row.id_exp ||
+        row.lic_exp ||
+        row.res_exp ||
+        row.int_exp ||
+        "Безстроково",
+      categories: row.lic_cat || null,
+      tax_id: row.res_tax || row.int_tax || null,
+      // Вложенный объект пользователя
+      user: {
+        name: row.user_name,
+        surname: row.user_surname,
+        patronymic: row.user_patronymic,
+        photo_url: row.user_photo,
+        birth_date: row.user_birth,
+      },
+    };
+
+    res.json(result);
+  });
+});
+
 app.listen(4000, () => console.log("Server running on port 4000"));

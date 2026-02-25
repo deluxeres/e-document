@@ -2,19 +2,22 @@ import React, { useState } from "react";
 import {
   Tabs,
   Box,
-  Text,
   Image,
-  Button,
   HStack,
   Center,
   VStack,
+  Button,
+  Text,
 } from "@chakra-ui/react";
 import { useSelector } from "react-redux";
 import { QRCodeSVG } from "qrcode.react";
 import * as htmlToImage from "html-to-image";
+import jsPDF from "jspdf";
 import axios from "axios";
+import { HiOutlineTrash } from "react-icons/hi";
 import { deleteDocument } from "../requests/api";
 import { toaster } from "./ui/toaster";
+import ExportDocument from "../dialogs/ExportDocument";
 
 const formatDate = (dateStr) => {
   if (!dateStr || dateStr === "—") return "—";
@@ -28,7 +31,7 @@ function Card({ documents, onRefresh }) {
 
   if (!documents?.length) return null;
 
-  const downloadCard = async (docId) => {
+  const handleExport = async (docId, format) => {
     const element = document.getElementById(`card-to-save-${docId}`);
     if (!element) return;
 
@@ -39,7 +42,9 @@ function Card({ documents, onRefresh }) {
       );
       setTempBase64(response.data.base64);
 
-      setTimeout(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      if (format === "png") {
         const dataUrl = await htmlToImage.toPng(element, {
           quality: 1,
           pixelRatio: 3,
@@ -50,12 +55,28 @@ function Card({ documents, onRefresh }) {
         link.download = `document-${docId}.png`;
         link.href = dataUrl;
         link.click();
+      } else {
+        const canvas = await htmlToImage.toCanvas(element, {
+          pixelRatio: 2,
+          backgroundColor: "#ffffff",
+        });
 
-        setTempBase64(null);
-        setLoading(false);
-      }, 150);
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({
+          orientation: "landscape",
+          unit: "px",
+          format: [canvas.width, canvas.height],
+        });
+
+        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+        pdf.save(`document-${docId}.pdf`);
+      }
+      toaster.create({ title: "Файл успішно сформовано", type: "success" });
     } catch (error) {
       console.error("Помилка при скачуванні:", error);
+      toaster.create({ title: "Помилка при експорті", type: "error" });
+    } finally {
+      setTempBase64(null);
       setLoading(false);
     }
   };
@@ -64,9 +85,7 @@ function Card({ documents, onRefresh }) {
     if (window.confirm("Ви дійсно бажаєте видалити документ?")) {
       try {
         await deleteDocument(user.id, documentId);
-
         toaster.create({ title: "Документ видалено", type: "success" });
-
         if (onRefresh) onRefresh();
       } catch (err) {
         toaster.create({ title: "Помилка видалення", type: "error" });
@@ -110,10 +129,12 @@ function Card({ documents, onRefresh }) {
         {documents.map((doc) => {
           const isDriver = doc.type_id === 3;
           const qrData = `Документ: ${doc.type?.name}\nНомер: ${doc.display_number}\nВласник: ${user?.surname} ${user?.name}`;
+          const shareUrl = `${window.location.origin}/share/doc/${doc.id}`;
 
           return (
             <Tabs.Content key={doc.id} value={doc.id.toString()}>
-              <VStack gap={4}>
+              <VStack gap={6}>
+                {/* Элемент для захвата в PNG/PDF (Тот самый визуал) */}
                 <div
                   id={`card-to-save-${doc.id}`}
                   className="card"
@@ -130,26 +151,14 @@ function Card({ documents, onRefresh }) {
                     <div className="card-general">
                       <div className="card-info__top">
                         <div className="card-info__img">
-                          {" "}
-                          {tempBase64 && (
-                            <Image
-                              src={tempBase64}
-                              alt="User Photo"
-                              w="100%"
-                              h="100%"
-                              objectFit="cover"
-                              crossOrigin="anonymous"
-                            />
-                          )}{" "}
-                          {!tempBase64 && (
-                            <Image
-                              src={user?.photo_url}
-                              alt="User Photo"
-                              w="100%"
-                              h="100%"
-                              objectFit="cover"
-                            />
-                          )}{" "}
+                          <Image
+                            src={tempBase64 || user?.photo_url}
+                            alt="User Photo"
+                            w="100%"
+                            h="100%"
+                            objectFit="cover"
+                            crossOrigin="anonymous"
+                          />
                         </div>
 
                         <div className="card-info__text">
@@ -256,7 +265,7 @@ function Card({ documents, onRefresh }) {
                           position: "absolute",
                           bottom: 20,
                           right: 10,
-                          zIndex: 999,
+                          zIndex: 9,
                         }}
                         className="card-qr"
                         p={1}
@@ -269,24 +278,28 @@ function Card({ documents, onRefresh }) {
                   </div>
                 </div>
 
-                <HStack mt={4}>
-                  <Button
-                    onClick={() => downloadCard(doc.id)}
-                    colorPalette="blue"
-                    variant="subtle"
-                    borderRadius="full"
+                {/* Блок управления под карточкой */}
+                <HStack gap={4}>
+                  <ExportDocument
                     loading={loading}
-                  >
-                    💾 Експортувати документ
-                  </Button>
+                    shareUrl={shareUrl}
+                    onExport={(format) => handleExport(doc.id, format)}
+                    onCopy={() => {
+                      navigator.clipboard.writeText(shareUrl);
+                      toaster.create({
+                        title: "Посилання скопійовано",
+                        type: "info",
+                      });
+                    }}
+                  />
+
                   <Button
                     onClick={() => deleteCard(doc.id)}
                     colorPalette="red"
-                    variant="subtle"
+                    variant="ghost"
                     borderRadius="full"
-                    loading={loading}
                   >
-                    Видалити документ
+                    <HiOutlineTrash /> Видалити документ
                   </Button>
                 </HStack>
               </VStack>

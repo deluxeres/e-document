@@ -43,4 +43,33 @@ export const getDocumentTypes = () => {
   return API.get("/document-types");
 };
 
+export const getPublicDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const document = await Document.findOne({
+      where: { id },
+      include: [
+        {
+          model: User,
+          attributes: [
+            "name",
+            "surname",
+            "patronymic",
+            "photo_url",
+            "birth_date",
+          ],
+        },
+      ],
+    });
+
+    if (!document) {
+      return res.status(404).json({ message: "Документ не знайдено" });
+    }
+
+    res.json(document);
+  } catch (error) {
+    res.status(500).json({ message: "Помилка сервера" });
+  }
+};
+
 export default API;
