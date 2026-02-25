@@ -1,5 +1,12 @@
 import React from "react";
-import { Button, Menu, Portal, HStack, Separator } from "@chakra-ui/react";
+import {
+  Button,
+  Menu,
+  Portal,
+  HStack,
+  Separator,
+  Image,
+} from "@chakra-ui/react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "./reducers/userSlice";
@@ -13,7 +20,11 @@ function Header() {
 
   const handleLogout = () => {
     dispatch(logout());
-    navigate("/login");
+    navigate("/");
+  };
+
+  const handleProfile = () => {
+    navigate("/profile");
   };
 
   return (
@@ -25,7 +36,7 @@ function Header() {
         px={4}
       >
         <div className="logotypeBlock">
-          <Link to="/home" className="logo font">
+          <Link to="/" className="logo font">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               version="1.0"
@@ -47,79 +58,109 @@ function Header() {
           <span style={{ fontWeight: 600 }}>E-document</span>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          <div>
-            <span
+        {user && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <div
               style={{
                 display: "flex",
+                justifyContent: "center",
                 alignItems: "center",
-                color: "white",
-                fontWeight: 600,
+                gap: "10px",
               }}
             >
-              {getPersonName(user, { initials: true })}
-            </span>
-          </div>
+              <Image
+                src={user?.photo_url}
+                alt="User Photo"
+                w="40px"
+                h="40px"
+                rounded="full"
+                objectFit="cover"
+              />
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  color: "white",
+                  fontWeight: 600,
+                }}
+              >
+                {getPersonName(user, { initials: true })}
+              </span>
+            </div>
 
-          <HStack gap={4}>
-            <Menu.Root positioning={{ placement: "bottom-end" }}>
-              <Menu.Trigger asChild>
-                <Button
-                  variant="ghost"
-                  color="white"
-                  size="md"
-                  borderRadius="full"
-                  _hover={{ bg: "whiteAlpha.300" }}
-                  p={2}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="currentColor"
-                    viewBox="0 0 30 30"
-                    width="24px"
-                    height="24px"
-                  >
-                    <path d="M 3 7 A 1.0001 1.0001 0 1 0 3 9 L 27 9 A 1.0001 1.0001 0 1 0 27 7 L 3 7 z M 3 14 A 1.0001 1.0001 0 1 0 3 16 L 27 16 A 1.0001 1.0001 0 1 0 27 14 L 3 14 z M 3 21 A 1.0001 1.0001 0 1 0 3 23 L 27 23 A 1.0001 1.0001 0 1 0 27 21 L 3 21 z" />
-                  </svg>
-                </Button>
-              </Menu.Trigger>
-
-              <Portal>
-                <Menu.Positioner>
-                  <Menu.Content
-                    minW="180px"
-                    borderRadius="xl"
-                    boxShadow="lg"
-                    p={1}
-                    bg="white"
-                    color="gray.800"
-                  >
-                    <Menu.Item
-                      value="logout"
-                      cursor="pointer"
-                      borderRadius="lg"
-                      color="red.600"
-                      _hover={{ bg: "red.50" }}
-                      onClick={handleLogout}
+            {user && (
+              <HStack gap={4}>
+                <Menu.Root positioning={{ placement: "bottom-end" }}>
+                  <Menu.Trigger asChild>
+                    <Button
+                      variant="ghost"
+                      color="white"
+                      size="md"
+                      borderRadius="full"
+                      _hover={{ bg: "whiteAlpha.300" }}
+                      p={2}
                     >
-                      <HStack gap={3}>
-                        <span>🚪</span>
-                        <span>Вийти з системи</span>
-                      </HStack>
-                    </Menu.Item>
-                  </Menu.Content>
-                </Menu.Positioner>
-              </Portal>
-            </Menu.Root>
-          </HStack>
-        </div>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="currentColor"
+                        viewBox="0 0 30 30"
+                        width="24px"
+                        height="24px"
+                      >
+                        <path d="M 3 7 A 1.0001 1.0001 0 1 0 3 9 L 27 9 A 1.0001 1.0001 0 1 0 27 7 L 3 7 z M 3 14 A 1.0001 1.0001 0 1 0 3 16 L 27 16 A 1.0001 1.0001 0 1 0 27 14 L 3 14 z M 3 21 A 1.0001 1.0001 0 1 0 3 23 L 27 23 A 1.0001 1.0001 0 1 0 27 21 L 3 21 z" />
+                      </svg>
+                    </Button>
+                  </Menu.Trigger>
+
+                  <Portal>
+                    <Menu.Positioner>
+                      <Menu.Content
+                        minW="180px"
+                        borderRadius="xl"
+                        boxShadow="lg"
+                        p={1}
+                        bg="white"
+                        color="gray.800"
+                      >
+                        <Menu.Item
+                          value="profile"
+                          cursor="pointer"
+                          borderRadius="lg"
+                          color="whie.600"
+                          _hover={{ bg: "red.50" }}
+                          onClick={handleProfile}
+                        >
+                          <HStack gap={3}>
+                            <span>Особистий кабінет</span>
+                          </HStack>
+                        </Menu.Item>
+                        <Menu.Item
+                          value="logout"
+                          cursor="pointer"
+                          borderRadius="lg"
+                          color="red.600"
+                          _hover={{ bg: "red.50" }}
+                          onClick={handleLogout}
+                        >
+                          <HStack gap={3}>
+                            <span>Вийти з системи</span>
+                          </HStack>
+                        </Menu.Item>
+                      </Menu.Content>
+                    </Menu.Positioner>
+                  </Portal>
+                </Menu.Root>
+              </HStack>
+            )}
+          </div>
+        )}
       </HStack>
     </div>
   );

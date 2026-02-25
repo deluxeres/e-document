@@ -4,6 +4,13 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import cors from "cors";
 import axios from "axios";
+import multer from "multer"; // Добавлено
+import path from "path"; // Добавлено
+import fs from "fs"; // Добавлено
+import { fileURLToPath } from "url"; // Добавлено
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SECRET = "SUPER_SECRET_KEY";
 const db = new sqlite3.Database("./data.db");
@@ -12,69 +19,142 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// Замени блок инициализации на этот:
+// ===========================
+// НАСТРОЙКА ЗАГРУЗКИ ФОТО
+// ===========================
+
+// Создаем папку uploads, если её нет
+const uploadDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+// Настройка хранилища multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+// Фильтр: только изображения (не PDF и т.д.)
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith("image/")) {
+    cb(null, true);
+  } else {
+    cb(new Error("Недопустимий формат файлу. Тільки зображення!"), false);
+  }
+};
+
+const upload = multer({ storage, fileFilter });
+
+// Раздача папки uploads как статики
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// ===========================
+// ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ
+// ===========================
 db.serialize(() => {
-  // Создаем таблицу для Посвідки
-  db.run(`CREATE TABLE IF NOT EXISTS doc_residence_permits (
-                                                             document_id INTEGER PRIMARY KEY,
-                                                             number TEXT,
-                                                             tax_id TEXT,
-                                                             country TEXT,
-                                                             authority TEXT,
-                                                             issue_date TEXT,
-                                                             expiry_date TEXT
-          )`);
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT UNIQUE,
+    password TEXT,
+    name TEXT,
+    surname TEXT,
+    patronymic TEXT,
+    photo_url TEXT,
+    birth_date TEXT
+  )`);
 
-  db.run(`CREATE TABLE IF NOT EXISTS doc_international_passports (
-                                                                   document_id INTEGER PRIMARY KEY,
-                                                                   number TEXT,
-                                                                   tax_id TEXT,
-                                                                   country TEXT,
-                                                                   authority TEXT,
-                                                                   issue_date TEXT,
-                                                                   expiry_date TEXT
-          )`);
+  db.run(
+    `CREATE TABLE IF NOT EXISTS document_types (id INTEGER PRIMARY KEY, name TEXT)`,
+  );
 
-  // Пытаемся добавить колонку country в id_cards.
-  // Если она уже есть, sqlite выдаст ошибку, которую мы просто игнорируем в коллбэке.
+  db.run(`CREATE TABLE IF NOT EXISTS user_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    type_id INTEGER,
+    status TEXT,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  )`);
+
+  db.run(
+    `CREATE TABLE IF NOT EXISTS doc_id_cards (document_id INTEGER PRIMARY KEY, number TEXT, record_number TEXT, authority TEXT, issue_date TEXT, expiry_date TEXT, country TEXT)`,
+  );
+  db.run(
+    `CREATE TABLE IF NOT EXISTS doc_passports_old (document_id INTEGER PRIMARY KEY, series TEXT, number TEXT, issued_by TEXT, issue_date TEXT)`,
+  );
+  db.run(
+    `CREATE TABLE IF NOT EXISTS doc_driver_licenses (document_id INTEGER PRIMARY KEY, number TEXT, categories TEXT, issue_date TEXT, expiry_date TEXT)`,
+  );
+  db.run(
+    `CREATE TABLE IF NOT EXISTS doc_residence_permits (document_id INTEGER PRIMARY KEY, number TEXT, tax_id TEXT, country TEXT, authority TEXT, issue_date TEXT, expiry_date TEXT)`,
+  );
+  db.run(
+    `CREATE TABLE IF NOT EXISTS doc_international_passports (document_id INTEGER PRIMARY KEY, number TEXT, tax_id TEXT, country TEXT, authority TEXT, issue_date TEXT, expiry_date TEXT)`,
+  );
+
   db.run("ALTER TABLE doc_id_cards ADD COLUMN country TEXT", (err) => {
-    if (err) {
-      // Если ошибка "duplicate column name", значит колонка уже есть — это нормально.
-      console.log("Column 'country' already exists or other DB status.");
+    if (err) console.log("Column 'country' already exists.");
+  });
+
+  db.get("SELECT count(*) as count FROM document_types", (err, row) => {
+    if (row && row.count === 0) {
+      const stmt = db.prepare(
+        "INSERT INTO document_types (id, name) VALUES (?, ?)",
+      );
+      stmt.run(1, "ID-картка");
+      stmt.run(2, "Паспорт (книжечка)");
+      stmt.run(3, "Посвідчення водія");
+      stmt.run(4, "Посвідка на проживання");
+      stmt.run(5, "Закордонний паспорт");
+      stmt.finalize();
     }
   });
+});
+
+// ===========================
+// ЭНДПОИНТЫ
+// ===========================
+
+// Загрузка файла (отдельный шаг перед регистрацией)
+app.post("/upload", upload.single("photo"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "Файл не обрано" });
+  // Возвращаем полный URL загруженного файла
+  const fileUrl = `http://localhost:4000/uploads/${req.file.filename}`;
+  res.json({ url: fileUrl });
 });
 
 app.post("/register", (req, res) => {
   const { phone, password, name, surname, patronymic, photo_url, birth_date } =
     req.body;
+  const cleanPhone = phone ? phone.replace(/\D/g, "") : "";
   const hash = bcrypt.hashSync(password, 8);
+
   const sql = `INSERT INTO users (phone, password, name, surname, patronymic, photo_url, birth_date) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
   db.run(
     sql,
-    [phone, hash, name, surname, patronymic, photo_url, birth_date],
+    [cleanPhone, hash, name, surname, patronymic, photo_url, birth_date],
     function (err) {
-      if (err) return res.status(400).json({ error: err.message });
-      res.json({
-        id: this.lastID,
-        phone,
-        name,
-        surname,
-        patronymic,
-        photo_url,
-        birth_date,
-      });
+      if (err)
+        return res.status(400).json({ error: "Цей номер вже зареєстровано" });
+      res.json({ id: this.lastID, phone: cleanPhone, name, photo_url });
     },
   );
 });
 
 app.post("/login", (req, res) => {
   const { phone, password } = req.body;
-  db.get("SELECT * FROM users WHERE phone = ?", [phone], (err, user) => {
+  const cleanPhone = phone ? phone.replace(/\D/g, "") : "";
+
+  db.get("SELECT * FROM users WHERE phone = ?", [cleanPhone], (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Невірні дані для входу" });
     }
     const token = jwt.sign({ id: user.id, phone: user.phone }, SECRET, {
       expiresIn: "24h",
@@ -104,48 +184,35 @@ app.get("/documents/:userId", (req, res) => {
 
   db.all(sql, [req.params.userId], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-
-    const cleanedRows = (rows || []).map((row) => {
-      // Создаем чистый базовый объект
-      const cleanDoc = {
-        id: row.id,
-        type_id: row.type_id,
-        status: row.status,
-        type: { id: row.type_id, name: row.type_name },
-        // Универсальные поля для Card.jsx
-        display_number:
-          row.id_number ||
-          row.pass_num ||
-          row.lic_num ||
-          row.res_num ||
-          row.int_num,
-        display_authority:
-          row.id_auth || row.pass_auth || row.res_auth || row.int_auth,
-        display_country: row.id_cnt || row.res_cnt || row.int_cnt || "УКРАЇНА",
-        issue_date:
-          row.id_iss ||
-          row.pass_iss ||
-          row.lic_iss ||
-          row.res_iss ||
-          row.int_iss,
-        expiry_date:
-          row.id_exp ||
-          row.lic_exp ||
-          row.res_exp ||
-          row.int_exp ||
-          "Безстроково",
-      };
-
-      // Добавляем специфические поля только если они есть
-      if (row.pass_ser) cleanDoc.series = row.pass_ser;
-      if (row.lic_cat) cleanDoc.categories = row.lic_cat;
-      if (row.record_number) cleanDoc.record_number = row.record_number;
-      if (row.res_tax || row.int_tax)
-        cleanDoc.tax_id = row.res_tax || row.int_tax;
-
-      return cleanDoc;
-    });
-
+    const cleanedRows = (rows || []).map((row) => ({
+      id: row.id,
+      type_id: row.type_id,
+      status: row.status,
+      type: { id: row.type_id, name: row.type_name },
+      display_number:
+        row.id_number ||
+        row.pass_num ||
+        row.lic_num ||
+        row.res_num ||
+        row.int_num,
+      display_authority:
+        row.id_auth || row.pass_auth || row.res_auth || row.int_auth,
+      display_country: row.id_cnt || row.res_cnt || row.int_cnt || "УКРАЇНА",
+      issue_date:
+        row.id_iss || row.pass_iss || row.lic_iss || row.res_iss || row.int_iss,
+      expiry_date:
+        row.id_exp ||
+        row.lic_exp ||
+        row.res_exp ||
+        row.int_exp ||
+        "Безстроково",
+      ...(row.pass_ser && { series: row.pass_ser }),
+      ...(row.lic_cat && { categories: row.lic_cat }),
+      ...(row.record_number && { record_number: row.record_number }),
+      ...((row.res_tax || row.int_tax) && {
+        tax_id: row.res_tax || row.int_tax,
+      }),
+    }));
     res.json(cleanedRows);
   });
 });
@@ -237,23 +304,15 @@ app.post("/documents", (req, res) => {
   );
 });
 
-// ===========================
-// УДАЛЕНИЕ ДОКУМЕНТА
-// ===========================
 app.delete("/documents/:userId/:documentId", (req, res) => {
   const { userId, documentId } = req.params;
-
   db.get(
     "SELECT id, type_id FROM user_documents WHERE id = ? AND user_id = ?",
     [documentId, userId],
     (err, doc) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (!doc) return res.status(404).json({ error: "Документ не знайдено" });
-
+      if (err || !doc)
+        return res.status(404).json({ error: "Документ не знайдено" });
       const typeId = Number(doc.type_id);
-      let tablesToDelete = ["user_documents"];
-
-      // Определяем, из какой дочерней таблицы также нужно удалить данные
       const detailTables = {
         1: "doc_id_cards",
         2: "doc_passports_old",
@@ -261,30 +320,24 @@ app.delete("/documents/:userId/:documentId", (req, res) => {
         4: "doc_residence_permits",
         5: "doc_international_passports",
       };
-
       const detailTable = detailTables[typeId];
 
       db.serialize(() => {
         db.run("BEGIN TRANSACTION");
-
-        // Удаляем из таблицы с деталями
-        if (detailTable) {
+        if (detailTable)
           db.run(`DELETE FROM ${detailTable} WHERE document_id = ?`, [
             documentId,
           ]);
-        }
-
-        // Удаляем основную запись
         db.run(
           "DELETE FROM user_documents WHERE id = ?",
           [documentId],
           (err) => {
             if (err) {
               db.run("ROLLBACK");
-              return res.status(500).json({ error: "Помилка при видаленні" });
+              return res.status(500).json({ error: "Помилка" });
             }
             db.run("COMMIT");
-            res.json({ success: true, message: "Документ видалено" });
+            res.json({ success: true, message: "Видалено" });
           },
         );
       });
@@ -305,7 +358,7 @@ app.get("/get-base64", async (req, res) => {
   try {
     const response = await axios.get(imageUrl, {
       responseType: "arraybuffer",
-      headers: { "User-Agent": "Mozilla/5.0...", Accept: "image/*" },
+      headers: { "User-Agent": "Mozilla/5.0" },
       timeout: 5000,
     });
     const contentType = response.headers["content-type"];
@@ -314,6 +367,53 @@ app.get("/get-base64", async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Ошибка прокси" });
   }
+});
+
+app.put("/users/:id", (req, res) => {
+  const { name, surname, patronymic, phone, birth_date, photo_url } = req.body;
+  const cleanPhone = phone ? phone.replace(/\D/g, "") : "";
+  const userId = req.params.id;
+
+  const sql = `UPDATE users SET name = ?, surname = ?, patronymic = ?, phone = ?, birth_date = ?, photo_url = ? WHERE id = ?`;
+
+  db.run(
+    sql,
+    [name, surname, patronymic, cleanPhone, birth_date, photo_url, userId],
+    function (err) {
+      if (err) return res.status(400).json({ error: err.message });
+      res.json({ success: true, message: "Дані оновлено" });
+    },
+  );
+});
+
+app.put("/users/:id/password", (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const userId = req.params.id;
+
+  // 1. Сначала находим пользователя в базе
+  db.get("SELECT password FROM users WHERE id = ?", [userId], (err, user) => {
+    if (err || !user) {
+      return res.status(404).json({ error: "Користувача не знайдено" });
+    }
+
+    // 2. Проверяем, совпадает ли старый пароль
+    const isMatch = bcrypt.compareSync(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Поточний пароль введено невірно" });
+    }
+
+    // 3. Хешируем новый пароль и сохраняем
+    const newHash = bcrypt.hashSync(newPassword, 8);
+    db.run(
+      "UPDATE users SET password = ? WHERE id = ?",
+      [newHash, userId],
+      (err) => {
+        if (err)
+          return res.status(500).json({ error: "Помилка при оновленні" });
+        res.json({ success: true, message: "Пароль змінено" });
+      },
+    );
+  });
 });
 
 app.listen(4000, () => console.log("Server running on port 4000"));
