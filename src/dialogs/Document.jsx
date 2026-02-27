@@ -19,6 +19,7 @@ import {
   Box,
   VStack,
   Image,
+  IconButton,
 } from "@chakra-ui/react";
 import { toaster } from "../components/ui/toaster";
 import { createDocument, getDocumentTypes } from "../requests/api";
@@ -32,6 +33,11 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
   const [loading, setLoading] = useState(false);
   const [countries, setCountries] = useState([]);
 
+  // Состояние для кастомных полей (когда выбран тип "Власний документ" ID 99)
+  const [customFields, setCustomFields] = useState([
+    { id: Date.now(), name: "", value: "" },
+  ]);
+
   // Загрузка типов из БД
   useEffect(() => {
     if (isOpen) {
@@ -41,8 +47,8 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     }
   }, [isOpen]);
 
+  // Загрузка стран
   useEffect(() => {
-    // Добавляем поле translations в запрос
     fetch("https://restcountries.com/v3.1/all?fields=name,flags,translations")
       .then((res) => res.json())
       .then((data) => {
@@ -52,7 +58,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
             value: c.translations?.ukr?.common || c.name.common,
             flag: c.flags.png,
           }))
-          // Сортируем по украинскому алфавиту
           .sort((a, b) => a.label.localeCompare(b.label, "uk-UA"));
         setCountries(sorted);
       })
@@ -64,9 +69,10 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     [countries],
   );
 
+  // "Власний документ" (99) всегда доступен, остальные — если их еще нет у юзера
   const availableTypes = useMemo(() => {
     return dbTypes.filter(
-      (t) => !existingDocs.some((doc) => doc.type_id === t.id),
+      (t) => t.id === 99 || !existingDocs.some((doc) => doc.type_id === t.id),
     );
   }, [dbTypes, existingDocs]);
 
@@ -85,25 +91,69 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Управление динамическими полями
+  const addCustomField = () => {
+    setCustomFields([...customFields, { id: Date.now(), name: "", value: "" }]);
+  };
+
+  const removeCustomField = (id) => {
+    if (customFields.length > 1) {
+      setCustomFields(customFields.filter((f) => f.id !== id));
+    }
+  };
+
+  const handleCustomFieldChange = (id, key, val) => {
+    setCustomFields(
+      customFields.map((f) => (f.id === id ? { ...f, [key]: val } : f)),
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedType || !formData.country) {
-      toaster.create({ title: "Оберіть тип та громадянство", type: "error" });
+
+    // Проверка выбора типа
+    if (!selectedType) {
+      toaster.create({ title: "Оберіть тип документа", type: "error" });
+      return;
+    }
+
+    // Проверка гражданства для стандартных типов (1-5)
+    if (selectedType !== "99" && !formData.country) {
+      toaster.create({ title: "Оберіть громадянство", type: "error" });
       return;
     }
 
     setLoading(true);
     try {
-      await createDocument(user.id, parseInt(selectedType), formData);
+      let payload = { ...formData };
+
+      // Если кастомный документ — собираем поля из массива в объект
+      if (selectedType === "99") {
+        const dynamicFields = {};
+        // Добавляем основное название
+        dynamicFields["Назва документа"] =
+          formData["Назва документа"] || "Мій документ";
+        // Добавляем дополнительные поля
+        customFields.forEach((f) => {
+          if (f.name.trim()) dynamicFields[f.name] = f.value;
+        });
+        payload = dynamicFields;
+      }
+
+      await createDocument(user.id, parseInt(selectedType), payload);
+
       toaster.create({ title: "Документ успішно створено", type: "success" });
+
+      // Сброс формы
       setSelectedType(null);
       setFormData({});
+      setCustomFields([{ id: Date.now(), name: "", value: "" }]);
       onClose();
       if (onRefresh) onRefresh();
     } catch (error) {
       toaster.create({
         title: "Помилка",
-        description: "Не вдалося зберегти",
+        description: "Не вдалося зберегти документ",
         type: "error",
       });
     } finally {
@@ -135,7 +185,7 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
             <form onSubmit={handleSubmit}>
               <DialogBody>
                 <VStack gap={4} align="stretch">
-                  {/* Выбор типа документа */}
+                  {/* Выбор типа */}
                   <Select.Root
                     collection={collection}
                     value={selectedType ? [selectedType] : []}
@@ -165,7 +215,8 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                     </Select.Content>
                   </Select.Root>
 
-                  {selectedType && (
+                  {/* Выбор страны (не показываем для кастомного типа 99) */}
+                  {selectedType && selectedType !== "99" && (
                     <Select.Root
                       collection={countryCollection}
                       onValueChange={(e) =>
@@ -189,7 +240,72 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                   )}
 
                   <Box minH="240px">
-                    {/* ID КАРТА (1) */}
+                    {/* РЕЖИМ: ВЛАСНИЙ ДОКУМЕНТ (99) */}
+                    {selectedType === "99" && (
+                      <Stack gap={3}>
+                        <Input
+                          name="Назва документа"
+                          placeholder="Назва (напр. Студентський квиток)"
+                          required
+                          onChange={handleInputChange}
+                        />
+                        <Text
+                          fontSize="xs"
+                          fontWeight="bold"
+                          mt={2}
+                          color="gray.500"
+                        >
+                          ДОДАТКОВІ ПОЛЯ:
+                        </Text>
+                        {customFields.map((field) => (
+                          <HStack key={field.id} gap={2}>
+                            <Input
+                              placeholder="Назва поля"
+                              value={field.name}
+                              onChange={(e) =>
+                                handleCustomFieldChange(
+                                  field.id,
+                                  "name",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                            <Input
+                              placeholder="Значення"
+                              value={field.value}
+                              onChange={(e) =>
+                                handleCustomFieldChange(
+                                  field.id,
+                                  "value",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                            <IconButton
+                              aria-label="Delete"
+                              variant="ghost"
+                              colorPalette="red"
+                              size="sm"
+                              onClick={() => removeCustomField(field.id)}
+                              disabled={customFields.length === 1}
+                            >
+                              ✕
+                            </IconButton>
+                          </HStack>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={addCustomField}
+                          width="full"
+                          mt={1}
+                        >
+                          + Додати поле
+                        </Button>
+                      </Stack>
+                    )}
+
+                    {/* ШАБЛОН: ID КАРТА (1) */}
                     {selectedType === "1" && (
                       <Stack gap={3}>
                         <Input
@@ -232,7 +348,7 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       </Stack>
                     )}
 
-                    {/* ПАСПОРТ КНИЖЕЧКА (2) */}
+                    {/* ШАБЛОН: ПАСПОРТ КНИЖЕЧКА (2) */}
                     {selectedType === "2" && (
                       <Stack gap={3}>
                         <HStack>
@@ -269,7 +385,7 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       </Stack>
                     )}
 
-                    {/* ВОДІЙСЬКЕ (3) */}
+                    {/* ШАБЛОН: ВОДІЙСЬКЕ (3) */}
                     {selectedType === "3" && (
                       <Stack gap={3}>
                         <Input
@@ -307,7 +423,7 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       </Stack>
                     )}
 
-                    {/* ПОСВІДКА НА ПРОЖИВАННЯ (4) И ЗАКОРДОННИЙ (5) */}
+                    {/* ШАБЛОН: ПОСВІДКА / ЗАКОРДОННИЙ (4, 5) */}
                     {(selectedType === "4" || selectedType === "5") && (
                       <Stack gap={3}>
                         <Input

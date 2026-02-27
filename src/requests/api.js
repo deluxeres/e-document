@@ -21,12 +21,11 @@ export const registerUser = (phone, password, name) => {
   return API.post("/register", { phone, password, name });
 };
 
-// Создать документ
 export const createDocument = (userId, typeId, fields) => {
   return API.post("/documents", {
     user_id: userId,
     type_id: typeId,
-    ...fields,
+    fields: fields, // Отправляем объект целиком под ключом 'fields'
   });
 };
 

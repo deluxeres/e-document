@@ -7,7 +7,6 @@ import {
   Center,
   VStack,
   Button,
-  Text,
 } from "@chakra-ui/react";
 import { useSelector } from "react-redux";
 import { QRCodeSVG } from "qrcode.react";
@@ -20,8 +19,11 @@ import { toaster } from "./ui/toaster";
 import ExportDocument from "../dialogs/ExportDocument";
 
 const formatDate = (dateStr) => {
-  if (!dateStr || dateStr === "—") return "—";
-  return new Date(dateStr).toLocaleDateString("uk-UA");
+  if (!dateStr || dateStr === "—" || dateStr === "Безстроково")
+    return dateStr || "—";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString("uk-UA");
 };
 
 function Card({ documents, onRefresh }) {
@@ -37,12 +39,13 @@ function Card({ documents, onRefresh }) {
 
     setLoading(true);
     try {
-      const response = await axios.get(
-        `http://localhost:4000/get-base64?url=${encodeURIComponent(user.photo_url)}`,
-      );
-      setTempBase64(response.data.base64);
-
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      if (user.photo_url) {
+        const response = await axios.get(
+          `http://localhost:4000/get-base64?url=${encodeURIComponent(user.photo_url)}`,
+        );
+        setTempBase64(response.data.base64);
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
 
       if (format === "png") {
         const dataUrl = await htmlToImage.toPng(element, {
@@ -50,7 +53,6 @@ function Card({ documents, onRefresh }) {
           pixelRatio: 3,
           backgroundColor: "#ffffff",
         });
-
         const link = document.createElement("a");
         link.download = `document-${docId}.png`;
         link.href = dataUrl;
@@ -60,14 +62,12 @@ function Card({ documents, onRefresh }) {
           pixelRatio: 2,
           backgroundColor: "#ffffff",
         });
-
         const imgData = canvas.toDataURL("image/png");
         const pdf = new jsPDF({
           orientation: "landscape",
           unit: "px",
           format: [canvas.width, canvas.height],
         });
-
         pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
         pdf.save(`document-${docId}.pdf`);
       }
@@ -117,7 +117,6 @@ function Card({ documents, onRefresh }) {
                 borderRadius="full"
                 fontSize="sm"
                 fontWeight="medium"
-                color="gray.600"
                 _selected={{ bg: "white", color: "black", boxShadow: "sm" }}
               >
                 {doc.type?.name}
@@ -127,14 +126,18 @@ function Card({ documents, onRefresh }) {
         </Center>
 
         {documents.map((doc) => {
-          const isDriver = doc.type_id === 3;
-          const qrData = `Документ: ${doc.type?.name}\nНомер: ${doc.display_number}\nВласник: ${user?.surname} ${user?.name}`;
+          const isCustom = doc.type?.is_custom === 1;
+          const qrData = `Документ: ${doc.type?.name}\nВласник: ${user?.surname} ${user?.name}`;
           const shareUrl = `${window.location.origin}/share/doc/${doc.id}`;
+
+          // Для кастомных исключаем "Назва документа", чтобы не дублировать
+          const customFields = (doc.custom_fields || []).filter(
+            (f) => f.field_name !== "Назва документа",
+          );
 
           return (
             <Tabs.Content key={doc.id} value={doc.id.toString()}>
               <VStack gap={6}>
-                {/* Элемент для захвата в PNG/PDF (Тот самый визуал) */}
                 <div
                   id={`card-to-save-${doc.id}`}
                   className="card"
@@ -142,9 +145,7 @@ function Card({ documents, onRefresh }) {
                 >
                   <div className="card-wrapper">
                     <div className="card-header">
-                      <span className="card-country">
-                        {doc.display_country?.toUpperCase()}
-                      </span>
+                      <span className="card-country">УКРАЇНА</span>
                       <p>{doc.type?.name}</p>
                     </div>
 
@@ -162,43 +163,46 @@ function Card({ documents, onRefresh }) {
                         </div>
 
                         <div className="card-info__text">
-                          {!isDriver && (
-                            <div className="card-info__text__birth">
-                              <span className="card-info__title">
-                                Дата народження:
-                              </span>
-                              <span className="card-info__subtitle">
-                                {formatDate(user?.birth_date)}
-                              </span>
-                            </div>
+                          {!isCustom ? (
+                            <>
+                              <div className="card-info__text__birth">
+                                <span className="card-info__title">
+                                  Дата народження:
+                                </span>
+                                <span className="card-info__subtitle">
+                                  {formatDate(user?.birth_date)}
+                                </span>
+                              </div>
+                              <div className="card-info__text__expiry">
+                                <span className="card-info__title">
+                                  Дійсний до:
+                                </span>
+                                <span className="card-info__subtitle">
+                                  {formatDate(doc.expiry_date)}
+                                </span>
+                              </div>
+                              <div className="card-info__text__sex">
+                                <span className="card-info__title">
+                                  Виданий:
+                                </span>
+                                <span className="card-info__subtitle">
+                                  {formatDate(doc.issue_date)}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            // Кастомные поля (верхний блок - первые 3 поля)
+                            customFields.slice(0, 3).map((field, idx) => (
+                              <div key={idx} className="card-info__text__birth">
+                                <span className="card-info__title">
+                                  {field.field_name}:
+                                </span>
+                                <span className="card-info__subtitle">
+                                  {field.field_value}
+                                </span>
+                              </div>
+                            ))
                           )}
-
-                          {isDriver && (
-                            <div className="card-info__text__birth">
-                              <span className="card-info__title">
-                                Категорії:
-                              </span>
-                              <span className="card-info__subtitle">
-                                {doc.categories || "B"}
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="card-info__text__expiry">
-                            <span className="card-info__title">
-                              Дійсний до:
-                            </span>
-                            <span className="card-info__subtitle">
-                              {formatDate(doc.expiry_date)}
-                            </span>
-                          </div>
-
-                          <div className="card-info__text__sex">
-                            <span className="card-info__title">Виданий:</span>
-                            <span className="card-info__subtitle">
-                              {formatDate(doc.issue_date)}
-                            </span>
-                          </div>
                         </div>
                       </div>
 
@@ -217,35 +221,56 @@ function Card({ documents, onRefresh }) {
                           </span>
                         </div>
 
-                        <HStack gap={10} align="flex-start">
-                          <div className="card-info__text__name">
-                            <span className="card-info__title">
-                              Номер документа
-                            </span>
-                            <span
-                              className="card-info__subtitle"
-                              style={{ color: "#2b6cb0", fontWeight: "bold" }}
-                            >
-                              {doc.display_number}
-                            </span>
-                          </div>
-
-                          {doc.tax_id && (
-                            <div className="card-info__text__name">
-                              <span className="card-info__title">
-                                РНОКПП (ІПН)
-                              </span>
-                              <span
-                                className="card-info__subtitle"
-                                style={{ fontWeight: "bold" }}
-                              >
-                                {doc.tax_id}
-                              </span>
-                            </div>
+                        <HStack gap={10} align="flex-start" wrap="wrap">
+                          {!isCustom ? (
+                            <>
+                              <div className="card-info__text__name">
+                                <span className="card-info__title">
+                                  Номер документа
+                                </span>
+                                <span
+                                  className="card-info__subtitle"
+                                  style={{
+                                    color: "#2b6cb0",
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  {doc.display_number}
+                                </span>
+                              </div>
+                              {doc.tax_id && (
+                                <div className="card-info__text__name">
+                                  <span className="card-info__title">
+                                    РНОКПП (ІПН)
+                                  </span>
+                                  <span
+                                    className="card-info__subtitle"
+                                    style={{ fontWeight: "bold" }}
+                                  >
+                                    {doc.tax_id}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            // Кастомные поля (нижний блок - всё что после 3-го поля)
+                            customFields.slice(3).map((field, idx) => (
+                              <div key={idx} className="card-info__text__name">
+                                <span className="card-info__title">
+                                  {field.field_name}
+                                </span>
+                                <span
+                                  className="card-info__subtitle"
+                                  style={{ fontWeight: "bold" }}
+                                >
+                                  {field.field_value}
+                                </span>
+                              </div>
+                            ))
                           )}
                         </HStack>
 
-                        {doc.display_authority && (
+                        {!isCustom && doc.display_authority && (
                           <div
                             className="card-info__text__patronimyc"
                             style={{ marginTop: "8px" }}
@@ -278,7 +303,6 @@ function Card({ documents, onRefresh }) {
                   </div>
                 </div>
 
-                {/* Блок управления под карточкой */}
                 <HStack gap={4}>
                   <ExportDocument
                     loading={loading}
@@ -292,7 +316,6 @@ function Card({ documents, onRefresh }) {
                       });
                     }}
                   />
-
                   <Button
                     onClick={() => deleteCard(doc.id)}
                     colorPalette="red"
