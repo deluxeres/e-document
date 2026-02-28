@@ -10,11 +10,13 @@ import {
   SimpleGrid,
   Stack,
   Heading,
+  Separator, // Если используете Chakra v3, иначе просто Box с границей
 } from "@chakra-ui/react";
 import { toaster } from "../ui/toaster";
 import { setUser } from "../reducers/userSlice";
 import axios from "axios";
 import InputMask from "react-input-mask";
+import TwoFactorAuth from "../TwoFactorAuth";
 
 const API = axios.create({ baseURL: "http://localhost:4000" });
 
@@ -23,7 +25,6 @@ function Profile() {
   const dispatch = useDispatch();
   const fileInputRef = useRef(null);
 
-  // Состояние для данных профиля
   const [formData, setFormData] = useState({
     name: user?.name || "",
     surname: user?.surname || "",
@@ -33,7 +34,6 @@ function Profile() {
     photo_url: user?.photo_url || "",
   });
 
-  // Состояние для паролей
   const [passwords, setPasswords] = useState({
     oldPassword: "",
     newPassword: "",
@@ -43,14 +43,11 @@ function Profile() {
   const [preview, setPreview] = useState(user?.photo_url);
   const [loading, setLoading] = useState(false);
 
-  // Загрузка нового фото
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const uploadData = new FormData();
     uploadData.append("photo", file);
-
     try {
       const { data } = await API.post("/upload", uploadData);
       setFormData((prev) => ({ ...prev, photo_url: data.url }));
@@ -63,71 +60,44 @@ function Profile() {
 
   const handleUpdatePassword = async () => {
     const { oldPassword, newPassword, confirmPassword } = passwords;
-
-    // Валидация на фронте
     if (!oldPassword || !newPassword) {
-      toaster.create({
-        title: "Введіть старий та новий паролі",
-        type: "error",
-      });
+      toaster.create({ title: "Введіть паролі", type: "error" });
       return;
     }
     if (newPassword !== confirmPassword) {
-      toaster.create({ title: "Нові паролі не співпадають", type: "error" });
+      toaster.create({ title: "Паролі не співпадають", type: "error" });
       return;
     }
-    if (newPassword.length < 4) {
-      toaster.create({
-        title: "Пароль має бути не менше 4 символів",
-        type: "error",
-      });
-      return;
-    }
-
     try {
-      const res = await API.put(`/users/${user.id}/password`, {
-        oldPassword,
-        newPassword,
-      });
-
-      toaster.create({ title: res.data.message, type: "success" });
-
-      // Очищаем поля после успеха
+      await API.put(`/users/${user.id}/password`, { oldPassword, newPassword });
+      toaster.create({ title: "Пароль оновлено", type: "success" });
       setPasswords({ oldPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err) {
       toaster.create({
         title: "Помилка",
-        description: err.response?.data?.error || "Не вдалося змінити пароль",
+        description: err.response?.data?.error,
         type: "error",
       });
     }
   };
 
-  // Сохранение текстовых данных
   const handleSaveInfo = async () => {
-    if (!formData.name || !formData.surname) {
-      toaster.create({ title: "Ім'я та прізвище обов'язкові", type: "error" });
-      return;
-    }
-
     setLoading(true);
     try {
       await API.put(`/users/${user.id}`, formData);
-      // Обновляем Redux
       dispatch(setUser({ user: { ...user, ...formData }, token }));
-      toaster.create({ title: "Дані успішно збережено", type: "success" });
+      toaster.create({ title: "Дані збережено", type: "success" });
     } catch (err) {
-      toaster.create({ title: "Помилка при збереженні", type: "error" });
+      toaster.create({ title: "Помилка", type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    // Используем Box как обертку вместо проблемного Container
     <Box maxW="1200px" mx="auto" py={10} px={5}>
       <SimpleGrid columns={{ base: 1, lg: 3 }} gap={8}>
-        {/* ЛЕВАЯ ПАНЕЛЬ: Аватар */}
+        {/* ЛЕВАЯ ПАНЕЛЬ */}
         <Box
           bg="white"
           p={8}
@@ -137,7 +107,7 @@ function Profile() {
           textAlign="center"
         >
           <VStack spacing={6}>
-            <Box position="relative" display="inline-block">
+            <Box position="relative">
               <Image
                 src={preview || "https://via.placeholder.com/150"}
                 w="180px"
@@ -166,25 +136,23 @@ function Profile() {
                 onChange={handleFileChange}
               />
             </Box>
-
             <VStack spacing={1}>
               <Heading size="md">
                 {formData.name} {formData.surname}
               </Heading>
               <Text fontSize="sm" color="gray.500">
-                ID користувача: {user?.id}
+                ID: {user?.id}
               </Text>
             </VStack>
-
             <Box w="100%" p={3} bg="green.50" borderRadius="xl">
               <Text fontSize="xs" fontWeight="bold" color="green.700">
-                СТАТУС: ВЕРИФІКОВАНО
+                ВЕРИФІКОВАНО
               </Text>
             </Box>
           </VStack>
         </Box>
 
-        {/* ПРАВАЯ ПАНЕЛЬ: Формы */}
+        {/* ПРАВАЯ ПАНЕЛЬ */}
         <Stack gap={6} gridColumn={{ lg: "span 2" }}>
           {/* Блок 1: Личные данные */}
           <Box bg="white" p={10} borderRadius="24px" boxShadow="sm">
@@ -193,7 +161,7 @@ function Profile() {
             </Heading>
             <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
               <Box>
-                <Text fontSize="xs" color="gray.500" mb={2} fontWeight="bold">
+                <Text fontSize="xs" fontWeight="bold" mb={2}>
                   ПРІЗВИЩЕ
                 </Text>
                 <Input
@@ -204,7 +172,7 @@ function Profile() {
                 />
               </Box>
               <Box>
-                <Text fontSize="xs" color="gray.500" mb={2} fontWeight="bold">
+                <Text fontSize="xs" fontWeight="bold" mb={2}>
                   ІМ'Я
                 </Text>
                 <Input
@@ -215,7 +183,7 @@ function Profile() {
                 />
               </Box>
               <Box>
-                <Text fontSize="xs" color="gray.500" mb={2} fontWeight="bold">
+                <Text fontSize="xs" fontWeight="bold" mb={2}>
                   ПО БАТЬКОВІ
                 </Text>
                 <Input
@@ -226,7 +194,7 @@ function Profile() {
                 />
               </Box>
               <Box>
-                <Text fontSize="xs" color="gray.500" mb={2} fontWeight="bold">
+                <Text fontSize="xs" fontWeight="bold" mb={2}>
                   ДАТА НАРОДЖЕННЯ
                 </Text>
                 <Input
@@ -238,7 +206,7 @@ function Profile() {
                 />
               </Box>
               <Box gridColumn="span 2">
-                <Text fontSize="xs" color="gray.500" mb={2} fontWeight="bold">
+                <Text fontSize="xs" fontWeight="bold" mb={2}>
                   ТЕЛЕФОН
                 </Text>
                 <InputMask
@@ -266,70 +234,85 @@ function Profile() {
             </Button>
           </Box>
 
-          {/* Блок 2: Безопасность */}
-          {/* Блок 2: Безпека */}
+          {/* Блок 2: Двухфакторная аутентификация (отдельной карточкой) */}
+          <TwoFactorAuth
+            user={user}
+            token={token}
+            onUpdate={(status) =>
+              dispatch(
+                setUser({
+                  user: { ...user, two_factor_enabled: status },
+                  token,
+                }),
+              )
+            }
+          />
+
+          {/* Блок 3: Безопасность (Пароль) */}
           <Box bg="white" p={10} borderRadius="24px" boxShadow="sm">
             <Heading size="md" mb={8}>
-              Безпека
+              Зміна паролю
             </Heading>
-            <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
-              {/* ДОБАВЛЕНО ПОЛЕ ДЛЯ СТАРОГО ПАРОЛЯ */}
-              <Box gridColumn="span 2">
-                <Text fontSize="xs" color="gray.500" mb={2} fontWeight="bold">
+            <VStack gap={6} align="stretch">
+              <Box>
+                <Text fontSize="xs" fontWeight="bold" mb={2}>
                   ПОТОЧНИЙ ПАРОЛЬ
                 </Text>
                 <Input
                   type="password"
-                  placeholder="Введіть поточний пароль"
+                  placeholder="••••••••"
                   value={passwords.oldPassword}
                   onChange={(e) =>
                     setPasswords({ ...passwords, oldPassword: e.target.value })
                   }
                 />
               </Box>
-
-              <Box gridColumn="span 2">
-                <Text fontSize="xs" color="gray.500" mb={2} fontWeight="bold">
-                  НОВИЙ ПАРОЛЬ
-                </Text>
-                <Input
-                  type="password"
-                  placeholder="Введіть новий пароль"
-                  value={passwords.newPassword}
-                  onChange={(e) =>
-                    setPasswords({ ...passwords, newPassword: e.target.value })
-                  }
-                />
-              </Box>
-              <Box gridColumn="span 2">
-                <Text fontSize="xs" color="gray.500" mb={2} fontWeight="bold">
-                  ПІДТВЕРДЖЕННЯ
-                </Text>
-                <Input
-                  type="password"
-                  placeholder="Повторіть пароль"
-                  value={passwords.confirmPassword}
-                  onChange={(e) =>
-                    setPasswords({
-                      ...passwords,
-                      confirmPassword: e.target.value,
-                    })
-                  }
-                />
-              </Box>
-            </SimpleGrid>
-            <Button
-              mt={8}
-              w="full"
-              variant="outline"
-              borderColor="black"
-              h="56px"
-              borderRadius="12px"
-              _hover={{ bg: "gray.50" }}
-              onClick={handleUpdatePassword}
-            >
-              Оновити пароль
-            </Button>
+              <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
+                <Box>
+                  <Text fontSize="xs" fontWeight="bold" mb={2}>
+                    НОВИЙ ПАРОЛЬ
+                  </Text>
+                  <Input
+                    type="password"
+                    placeholder="Мінімум 4 символи"
+                    value={passwords.newPassword}
+                    onChange={(e) =>
+                      setPasswords({
+                        ...passwords,
+                        newPassword: e.target.value,
+                      })
+                    }
+                  />
+                </Box>
+                <Box>
+                  <Text fontSize="xs" fontWeight="bold" mb={2}>
+                    ПІДТВЕРДЖЕННЯ
+                  </Text>
+                  <Input
+                    type="password"
+                    placeholder="Повторіть новий пароль"
+                    value={passwords.confirmPassword}
+                    onChange={(e) =>
+                      setPasswords({
+                        ...passwords,
+                        confirmPassword: e.target.value,
+                      })
+                    }
+                  />
+                </Box>
+              </SimpleGrid>
+              <Button
+                mt={4}
+                w="full"
+                variant="outline"
+                borderColor="black"
+                h="56px"
+                borderRadius="12px"
+                onClick={handleUpdatePassword}
+              >
+                Оновити пароль
+              </Button>
+            </VStack>
           </Box>
         </Stack>
       </SimpleGrid>

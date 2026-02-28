@@ -8,6 +8,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import speakeasy from "speakeasy";
+import QRCode from "qrcode";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,6 +94,15 @@ db.serialize(() => {
 
   db.run("ALTER TABLE doc_id_cards ADD COLUMN country TEXT", () => {});
 
+  db.run(
+    "ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER DEFAULT 0",
+    () => {},
+  );
+  db.run(
+    "ALTER TABLE users ADD COLUMN two_factor_secret TEXT DEFAULT NULL",
+    () => {},
+  );
+
   db.get("SELECT count(*) as count FROM document_types", (err, row) => {
     if (row && row.count === 0) {
       const stmt = db.prepare(
@@ -143,14 +154,105 @@ app.post("/register", (req, res) => {
 app.post("/login", (req, res) => {
   const { phone, password } = req.body;
   const cleanPhone = phone ? phone.replace(/\D/g, "") : "";
+
   db.get("SELECT * FROM users WHERE phone = ?", [cleanPhone], (err, user) => {
     if (err || !user || !bcrypt.compareSync(password, user.password)) {
       return res.status(401).json({ error: "Невірні дані для входу" });
     }
+
+    // ПРОВЕРКА 2FA
+    if (user.two_factor_enabled) {
+      // Если включено — возвращаем флаг и ID пользователя, но НЕ токен
+      return res.json({ require2FA: true, userId: user.id });
+    }
+
+    // Если выключено — стандартный вход с выдачей токена
     const token = jwt.sign({ id: user.id }, SECRET, { expiresIn: "24h" });
-    const { password: _, ...userWithoutPassword } = user;
+    const { password: _, two_factor_secret: __, ...userWithoutPassword } = user;
     res.json({ token, user: userWithoutPassword });
   });
+});
+
+// --- ЭТАП 2: Вход по коду 2FA ---
+app.post("/login/2fa", (req, res) => {
+  const { userId, code } = req.body;
+
+  db.get("SELECT * FROM users WHERE id = ?", [userId], (err, user) => {
+    if (err || !user)
+      return res.status(404).json({ error: "Користувача не знайдено" });
+
+    const verified = speakeasy.totp.verify({
+      secret: user.two_factor_secret,
+      encoding: "base32",
+      token: code,
+    });
+
+    if (verified) {
+      const token = jwt.sign({ id: user.id }, SECRET, { expiresIn: "24h" });
+      const {
+        password: _,
+        two_factor_secret: __,
+        ...userWithoutPassword
+      } = user;
+      res.json({ token, user: userWithoutPassword });
+    } else {
+      res.status(400).json({ error: "Невірний код підтвердження" });
+    }
+  });
+});
+
+// --- НАСТРОЙКА 2FA (В профиле) ---
+
+// 1. Генерация QR-кода и секрета
+app.post("/users/:id/2fa/setup", (req, res) => {
+  const secret = speakeasy.generateSecret({
+    name: `E-document (ID: ${req.params.id})`,
+  });
+
+  QRCode.toDataURL(secret.otpauth_url, (err, data_url) => {
+    if (err) return res.status(500).json({ error: "Ошибка генерации QR" });
+    res.json({
+      secret: secret.base32, // Отправляем на фронт для верификации
+      qrCode: data_url, // Отправляем картинку для сканирования
+    });
+  });
+});
+
+// 2. Первичная проверка и активация в базе
+app.post("/users/:id/2fa/verify", (req, res) => {
+  const { id } = req.params;
+  const { code, secret } = req.body;
+
+  const verified = speakeasy.totp.verify({
+    secret: secret,
+    encoding: "base32",
+    token: code,
+  });
+
+  if (verified) {
+    db.run(
+      "UPDATE users SET two_factor_enabled = 1, two_factor_secret = ? WHERE id = ?",
+      [secret, id],
+      function (err) {
+        if (err) return res.status(500).json({ error: "Ошибка БД" });
+        res.json({ success: true });
+      },
+    );
+  } else {
+    res.status(400).json({ error: "Невірний код. Спробуйте ще раз." });
+  }
+});
+
+// 3. Отключение 2FA
+app.post("/users/:id/2fa/disable", (req, res) => {
+  db.run(
+    "UPDATE users SET two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?",
+    [req.params.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: "Ошибка БД" });
+      res.json({ success: true });
+    },
+  );
 });
 
 // ===========================

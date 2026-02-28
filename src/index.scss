@@ -223,13 +223,6 @@ input {
           justify-content: inherit;
           flex-direction: column;
 
-          .card-info__title {
-            display: block;
-            font-weight: 400;
-            font-size: 15px;
-            line-height: 20px;
-            color: #000;
-          }
           .card-info__subtitle {
             display: block;
             font-family: 'Inter';
@@ -263,6 +256,14 @@ input {
       }
     }
   }
+}
+
+.card-info__title {
+  display: block;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 20px;
+  color: #000;
 }
 
 .login {

@@ -7,6 +7,8 @@ import {
   Center,
   VStack,
   Button,
+  SimpleGrid,
+  Text,
 } from "@chakra-ui/react";
 import { useSelector } from "react-redux";
 import { QRCodeSVG } from "qrcode.react";
@@ -130,7 +132,6 @@ function Card({ documents, onRefresh }) {
           const qrData = `Документ: ${doc.type?.name}\nВласник: ${user?.surname} ${user?.name}`;
           const shareUrl = `${window.location.origin}/share/doc/${doc.id}`;
 
-          // Для кастомных исключаем "Назва документа", чтобы не дублировать
           const customFields = (doc.custom_fields || []).filter(
             (f) => f.field_name !== "Назва документа",
           );
@@ -141,7 +142,12 @@ function Card({ documents, onRefresh }) {
                 <div
                   id={`card-to-save-${doc.id}`}
                   className="card"
-                  style={{ background: "white", borderRadius: "20px" }}
+                  style={{
+                    background: "white",
+                    borderRadius: "20px",
+                    overflow: "hidden",
+                    position: "relative",
+                  }}
                 >
                   <div className="card-wrapper">
                     <div className="card-header">
@@ -150,154 +156,155 @@ function Card({ documents, onRefresh }) {
                     </div>
 
                     <div className="card-general">
-                      <div className="card-info__top">
-                        <div className="card-info__img">
+                      {/* ВЕРХНИЙ БЛОК: Фото + 3 поля справа */}
+                      <HStack align="stretch" gap={4} mb={4}>
+                        <Box
+                          className="card-info__img"
+                          w="120px"
+                          h="150px"
+                          flexShrink={0}
+                        >
                           <Image
                             src={tempBase64 || user?.photo_url}
                             alt="User Photo"
                             w="100%"
                             h="100%"
                             objectFit="cover"
+                            borderRadius="12px"
                             crossOrigin="anonymous"
                           />
-                        </div>
+                        </Box>
 
-                        <div className="card-info__text">
+                        <VStack
+                          align="flex-start"
+                          justify="space-between"
+                          flex={1}
+                          py={1}
+                        >
                           {!isCustom ? (
                             <>
-                              <div className="card-info__text__birth">
-                                <span className="card-info__title">
+                              <div>
+                                <Text className="card-info__title">
                                   Дата народження:
-                                </span>
-                                <span className="card-info__subtitle">
+                                </Text>
+                                <Text className="card-info__subtitle">
                                   {formatDate(user?.birth_date)}
-                                </span>
+                                </Text>
                               </div>
-                              <div className="card-info__text__expiry">
-                                <span className="card-info__title">
+                              <div>
+                                <Text className="card-info__title">
                                   Дійсний до:
-                                </span>
-                                <span className="card-info__subtitle">
+                                </Text>
+                                <Text className="card-info__subtitle">
                                   {formatDate(doc.expiry_date)}
-                                </span>
+                                </Text>
                               </div>
-                              <div className="card-info__text__sex">
-                                <span className="card-info__title">
+                              <div>
+                                <Text className="card-info__title">
                                   Виданий:
-                                </span>
-                                <span className="card-info__subtitle">
+                                </Text>
+                                <Text className="card-info__subtitle">
                                   {formatDate(doc.issue_date)}
-                                </span>
+                                </Text>
                               </div>
                             </>
                           ) : (
-                            // Кастомные поля (верхний блок - первые 3 поля)
                             customFields.slice(0, 3).map((field, idx) => (
-                              <div key={idx} className="card-info__text__birth">
-                                <span className="card-info__title">
+                              <div key={idx}>
+                                <Text className="card-info__title">
                                   {field.field_name}:
-                                </span>
-                                <span className="card-info__subtitle">
+                                </Text>
+                                <Text className="card-info__subtitle">
                                   {field.field_value}
-                                </span>
+                                </Text>
                               </div>
                             ))
                           )}
-                        </div>
-                      </div>
+                        </VStack>
+                      </HStack>
 
-                      <div className="card-info__bottom">
-                        <div className="card-info__text__surname">
-                          <span
-                            className="card-info__subtitle"
-                            style={{
-                              fontWeight: "bold",
-                              textTransform: "uppercase",
-                              display: "block",
-                              marginBottom: "8px",
-                            }}
-                          >
-                            {user?.surname} {user?.name} {user?.patronymic}
-                          </span>
-                        </div>
+                      {/* СРЕДНИЙ БЛОК: ФИО */}
+                      <Box mb={4}>
+                        <Text
+                          fontSize="lg"
+                          fontWeight="bold"
+                          textTransform="uppercase"
+                          lineHeight="1.2"
+                        >
+                          {user?.surname} {user?.name} {user?.patronymic}
+                        </Text>
+                      </Box>
 
-                        <HStack gap={10} align="flex-start" wrap="wrap">
-                          {!isCustom ? (
-                            <>
-                              <div className="card-info__text__name">
-                                <span className="card-info__title">
-                                  Номер документа
-                                </span>
-                                <span
+                      {/* НИЖНИЙ БЛОК: Сетка полей */}
+                      <SimpleGrid columns={2} gap={4} mb={2}>
+                        {!isCustom ? (
+                          <>
+                            <Box>
+                              <Text className="card-info__title">
+                                Номер документа
+                              </Text>
+                              <Text
+                                className="card-info__subtitle"
+                                color="#2b6cb0"
+                                fontWeight="bold"
+                              >
+                                {doc.display_number}
+                              </Text>
+                            </Box>
+                            {doc.tax_id && (
+                              <Box>
+                                <Text className="card-info__title">
+                                  РНОКПП (ІПН)
+                                </Text>
+                                <Text
                                   className="card-info__subtitle"
-                                  style={{
-                                    color: "#2b6cb0",
-                                    fontWeight: "bold",
-                                  }}
+                                  fontWeight="bold"
                                 >
-                                  {doc.display_number}
-                                </span>
-                              </div>
-                              {doc.tax_id && (
-                                <div className="card-info__text__name">
-                                  <span className="card-info__title">
-                                    РНОКПП (ІПН)
-                                  </span>
-                                  <span
-                                    className="card-info__subtitle"
-                                    style={{ fontWeight: "bold" }}
-                                  >
-                                    {doc.tax_id}
-                                  </span>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            // Кастомные поля (нижний блок - всё что после 3-го поля)
-                            customFields.slice(3).map((field, idx) => (
-                              <div key={idx} className="card-info__text__name">
-                                <span className="card-info__title">
-                                  {field.field_name}
-                                </span>
-                                <span
-                                  className="card-info__subtitle"
-                                  style={{ fontWeight: "bold" }}
-                                >
-                                  {field.field_value}
-                                </span>
-                              </div>
-                            ))
-                          )}
-                        </HStack>
-
-                        {!isCustom && doc.display_authority && (
-                          <div
-                            className="card-info__text__patronimyc"
-                            style={{ marginTop: "8px" }}
-                          >
-                            <span className="card-info__title">
-                              Орган що видав
-                            </span>
-                            <span className="card-info__subtitle">
-                              {doc.display_authority}
-                            </span>
-                          </div>
+                                  {doc.tax_id}
+                                </Text>
+                              </Box>
+                            )}
+                          </>
+                        ) : (
+                          customFields.slice(3).map((field, idx) => (
+                            <Box key={idx}>
+                              <Text className="card-info__title">
+                                {field.field_name}
+                              </Text>
+                              <Text
+                                className="card-info__subtitle"
+                                fontWeight="bold"
+                              >
+                                {field.field_value}
+                              </Text>
+                            </Box>
+                          ))
                         )}
-                      </div>
+                      </SimpleGrid>
 
+                      {/* ДОПОЛНИТЕЛЬНОЕ ПОЛЕ (Орган) */}
+                      {!isCustom && doc.display_authority && (
+                        <Box mt={2}>
+                          <Text className="card-info__title">
+                            Орган що видав
+                          </Text>
+                          <Text className="card-info__subtitle">
+                            {doc.display_authority}
+                          </Text>
+                        </Box>
+                      )}
+
+                      {/* QR-КОД (позиционирован абсолютно относительно card-general) */}
                       <Box
-                        style={{
-                          position: "absolute",
-                          bottom: 20,
-                          right: 10,
-                          zIndex: 9,
-                        }}
-                        className="card-qr"
+                        position="absolute"
+                        bottom="20px"
+                        right="20px"
                         p={1}
                         bg="white"
                         borderRadius="md"
+                        boxShadow="sm"
                       >
-                        <QRCodeSVG value={qrData} size={65} />
+                        <QRCodeSVG value={qrData} size={60} />
                       </Box>
                     </div>
                   </div>
