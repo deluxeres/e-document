@@ -21,11 +21,12 @@ export const registerUser = (phone, password, name) => {
   return API.post("/register", { phone, password, name });
 };
 
-export const createDocument = (userId, typeId, fields) => {
-  return API.post("/documents", {
+export const createDocument = (userId, typeId, fields, photoUrl) => {
+  return axios.post("http://localhost:4000/documents", {
     user_id: userId,
     type_id: typeId,
-    fields: fields, // Отправляем объект целиком под ключом 'fields'
+    fields: fields,
+    photo_url: photoUrl,
   });
 };
 

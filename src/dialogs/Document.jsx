@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   DialogRoot,
   DialogContent,
@@ -24,6 +24,7 @@ import {
 import { toaster } from "../components/ui/toaster";
 import { createDocument, getDocumentTypes } from "../requests/api";
 import { useSelector } from "react-redux";
+import axios from "axios";
 
 function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
   const user = useSelector((state) => state.user.user);
@@ -32,6 +33,11 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
   const [countries, setCountries] = useState([]);
+
+  // Состояния для фото документа
+  const [docPhoto, setDocPhoto] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Состояние для кастомных полей (когда выбран тип "Власний документ" ID 99)
   const [customFields, setCustomFields] = useState([
@@ -91,6 +97,29 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Логика загрузки фото
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const uploadData = new FormData();
+    uploadData.append("photo", file);
+
+    setUploading(true);
+    try {
+      const { data } = await axios.post(
+        "http://localhost:4000/upload",
+        uploadData,
+      );
+      setDocPhoto(data.url);
+      toaster.create({ title: "Фото завантажено", type: "success" });
+    } catch (err) {
+      toaster.create({ title: "Помилка завантаження фото", type: "error" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Управление динамическими полями
   const addCustomField = () => {
     setCustomFields([...customFields, { id: Date.now(), name: "", value: "" }]);
@@ -111,15 +140,17 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Проверка выбора типа
     if (!selectedType) {
       toaster.create({ title: "Оберіть тип документа", type: "error" });
       return;
     }
 
-    // Проверка гражданства для стандартных типов (1-5)
-    if (selectedType !== "99" && !formData.country) {
-      toaster.create({ title: "Оберіть громадянство", type: "error" });
+    // ОБЯЗАТЕЛЬНАЯ ПРОВЕРКА ФОТО
+    if (!docPhoto) {
+      toaster.create({
+        title: "Будь ласка, додайте фото документа",
+        type: "error",
+      });
       return;
     }
 
@@ -127,35 +158,33 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     try {
       let payload = { ...formData };
 
-      // Если кастомный документ — собираем поля из массива в объект
+      // Обработка кастомных полей для типа 99
       if (selectedType === "99") {
         const dynamicFields = {};
-        // Добавляем основное название
         dynamicFields["Назва документа"] =
-          formData["Назва документа"] || "Мій документ";
-        // Добавляем дополнительные поля
-        customFields.forEach((f) => {
-          if (f.name.trim()) dynamicFields[f.name] = f.value;
+          formData["Назва документа"] || "Власний документ";
+        customFields.forEach((field) => {
+          if (field.name.trim() !== "") {
+            dynamicFields[field.name] = field.value;
+          }
         });
         payload = dynamicFields;
       }
 
-      await createDocument(user.id, parseInt(selectedType), payload);
+      // Передаем docPhoto в запрос
+      await createDocument(user.id, parseInt(selectedType), payload, docPhoto);
 
       toaster.create({ title: "Документ успішно створено", type: "success" });
 
-      // Сброс формы
+      // Сброс
+      setDocPhoto(null);
       setSelectedType(null);
       setFormData({});
       setCustomFields([{ id: Date.now(), name: "", value: "" }]);
       onClose();
       if (onRefresh) onRefresh();
     } catch (error) {
-      toaster.create({
-        title: "Помилка",
-        description: "Не вдалося зберегти документ",
-        type: "error",
-      });
+      toaster.create({ title: "Помилка при збереженні", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -165,7 +194,10 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     <DialogRoot
       open={isOpen}
       onOpenChange={(e) => {
-        if (!e.open) onClose();
+        if (!e.open) {
+          setDocPhoto(null);
+          onClose();
+        }
       }}
       placement="center"
     >
@@ -214,6 +246,62 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       ))}
                     </Select.Content>
                   </Select.Root>
+
+                  {/* Блок загрузки изображения */}
+                  {selectedType && (
+                    <VStack
+                      align="stretch"
+                      p={4}
+                      border="2px dashed"
+                      borderColor={docPhoto ? "green.400" : "blue.200"}
+                      borderRadius="xl"
+                      bg="gray.50"
+                    >
+                      <Text fontSize="xs" fontWeight="bold" color="gray.600">
+                        ФОТОГРАФІЯ ДОКУМЕНТА (ОБОВ'ЯЗКОВО)
+                      </Text>
+                      {docPhoto ? (
+                        <Box position="relative" h="150px" w="full">
+                          <Image
+                            src={docPhoto}
+                            borderRadius="lg"
+                            h="full"
+                            w="full"
+                            objectFit="cover"
+                          />
+                          <IconButton
+                            aria-label="Видалити фото"
+                            position="absolute"
+                            top={-2}
+                            right={-2}
+                            size="xs"
+                            colorPalette="red"
+                            rounded="full"
+                            onClick={() => setDocPhoto(null)}
+                          >
+                            ✕
+                          </IconButton>
+                        </Box>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          colorPalette="blue"
+                          size="sm"
+                          isLoading={uploading}
+                          onClick={() => fileInputRef.current.click()}
+                        >
+                          📎 Завантажити фотографію
+                        </Button>
+                      )}
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        hidden
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                      />
+                    </VStack>
+                  )}
 
                   {/* Выбор страны (не показываем для кастомного типа 99) */}
                   {selectedType && selectedType !== "99" && (
@@ -492,7 +580,7 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                   type="submit"
                   colorPalette="blue"
                   loading={loading}
-                  disabled={!selectedType}
+                  disabled={!selectedType || uploading}
                 >
                   Зберегти
                 </Button>

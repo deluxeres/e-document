@@ -35,17 +35,21 @@ function Card({ documents, onRefresh }) {
 
   if (!documents?.length) return null;
 
-  const handleExport = async (docId, format) => {
-    const element = document.getElementById(`card-to-save-${docId}`);
+  const handleExport = async (doc, format) => {
+    const element = document.getElementById(`card-to-save-${doc.id}`);
     if (!element) return;
 
     setLoading(true);
     try {
-      if (user.photo_url) {
+      // Пріоритет фото: спочатку фото документа, якщо немає — фото профілю
+      const photoToExport = doc.photo_url || user.photo_url;
+
+      if (photoToExport) {
         const response = await axios.get(
-          `http://localhost:4000/get-base64?url=${encodeURIComponent(user.photo_url)}`,
+          `http://localhost:4000/get-base64?url=${encodeURIComponent(photoToExport)}`,
         );
         setTempBase64(response.data.base64);
+        // Невелика затримка, щоб стейт оновився і картинка перерендерилась перед скріншотом
         await new Promise((resolve) => setTimeout(resolve, 400));
       }
 
@@ -56,7 +60,7 @@ function Card({ documents, onRefresh }) {
           backgroundColor: "#ffffff",
         });
         const link = document.createElement("a");
-        link.download = `document-${docId}.png`;
+        link.download = `document-${doc.id}.png`;
         link.href = dataUrl;
         link.click();
       } else {
@@ -71,7 +75,7 @@ function Card({ documents, onRefresh }) {
           format: [canvas.width, canvas.height],
         });
         pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-        pdf.save(`document-${docId}.pdf`);
+        pdf.save(`document-${doc.id}.pdf`);
       }
       toaster.create({ title: "Файл успішно сформовано", type: "success" });
     } catch (error) {
@@ -156,7 +160,6 @@ function Card({ documents, onRefresh }) {
                     </div>
 
                     <div className="card-general">
-                      {/* ВЕРХНИЙ БЛОК: Фото + 3 поля справа */}
                       <HStack align="stretch" gap={4} mb={4}>
                         <Box
                           className="card-info__img"
@@ -165,8 +168,9 @@ function Card({ documents, onRefresh }) {
                           flexShrink={0}
                         >
                           <Image
-                            src={tempBase64 || user?.photo_url}
-                            alt="User Photo"
+                            /* ИЗМЕНЕНО: Сначала пытаемся взять фото документа, затем фото юзера */
+                            src={tempBase64 || doc.photo_url || user?.photo_url}
+                            alt="Document Photo"
                             w="100%"
                             h="100%"
                             objectFit="cover"
@@ -223,7 +227,6 @@ function Card({ documents, onRefresh }) {
                         </VStack>
                       </HStack>
 
-                      {/* СРЕДНИЙ БЛОК: ФИО */}
                       <Box mb={4}>
                         <Text
                           fontSize="lg"
@@ -235,7 +238,6 @@ function Card({ documents, onRefresh }) {
                         </Text>
                       </Box>
 
-                      {/* НИЖНИЙ БЛОК: Сетка полей */}
                       <SimpleGrid columns={2} gap={4} mb={2}>
                         {!isCustom ? (
                           <>
@@ -282,7 +284,6 @@ function Card({ documents, onRefresh }) {
                         )}
                       </SimpleGrid>
 
-                      {/* ДОПОЛНИТЕЛЬНОЕ ПОЛЕ (Орган) */}
                       {!isCustom && doc.display_authority && (
                         <Box mt={2}>
                           <Text className="card-info__title">
@@ -294,7 +295,6 @@ function Card({ documents, onRefresh }) {
                         </Box>
                       )}
 
-                      {/* QR-КОД (позиционирован абсолютно относительно card-general) */}
                       <Box
                         position="absolute"
                         bottom="20px"
@@ -314,7 +314,7 @@ function Card({ documents, onRefresh }) {
                   <ExportDocument
                     loading={loading}
                     shareUrl={shareUrl}
-                    onExport={(format) => handleExport(doc.id, format)}
+                    onExport={(format) => handleExport(doc, format)}
                     onCopy={() => {
                       navigator.clipboard.writeText(shareUrl);
                       toaster.create({

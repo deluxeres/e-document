@@ -49,60 +49,94 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ
 // ===========================
 db.serialize(() => {
+  // 1. ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ (сразу со всеми полями)
   db.run(`CREATE TABLE IF NOT EXISTS users (
                                              id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                             phone TEXT UNIQUE, password TEXT, name TEXT, surname TEXT, patronymic TEXT, photo_url TEXT, birth_date TEXT
+                                             phone TEXT UNIQUE,
+                                             password TEXT,
+                                             name TEXT,
+                                             surname TEXT,
+                                             patronymic TEXT,
+                                             photo_url TEXT,
+                                             birth_date TEXT,
+                                             two_factor_enabled INTEGER DEFAULT 0,
+                                             two_factor_secret TEXT DEFAULT NULL
           )`);
 
+  // 2. ТИПЫ ДОКУМЕНТОВ
   db.run(`CREATE TABLE IF NOT EXISTS document_types (
                                                       id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                      name TEXT, is_custom INTEGER DEFAULT 0
+                                                      name TEXT,
+                                                      is_custom INTEGER DEFAULT 0
           )`);
 
-  db.run(
-    "ALTER TABLE document_types ADD COLUMN is_custom INTEGER DEFAULT 0",
-    () => {},
-  );
-
+  // 3. ОСНОВНАЯ ТАБЛИЦА ДОКУМЕНТОВ (photo_url добавлен сюда сразу)
   db.run(`CREATE TABLE IF NOT EXISTS user_documents (
-                                                      id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                      user_id INTEGER, type_id INTEGER, status TEXT,
-                                                      FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER, 
+    type_id INTEGER, 
+    status TEXT,
+    photo_url TEXT,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  )`);
 
+  // 4. ДИНАМИЧЕСКИЕ ПОЛЯ (для ID 99)
   db.run(`CREATE TABLE IF NOT EXISTS document_dynamic_fields (
                                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                                               document_id INTEGER, field_name TEXT, field_value TEXT,
+                                                               document_id INTEGER,
+                                                               field_name TEXT,
+                                                               field_value TEXT,
                                                                FOREIGN KEY(document_id) REFERENCES user_documents(id) ON DELETE CASCADE
     )`);
 
-  db.run(
-    `CREATE TABLE IF NOT EXISTS doc_id_cards (document_id INTEGER PRIMARY KEY, number TEXT, record_number TEXT, authority TEXT, issue_date TEXT, expiry_date TEXT, country TEXT)`,
-  );
-  db.run(
-    `CREATE TABLE IF NOT EXISTS doc_passports_old (document_id INTEGER PRIMARY KEY, series TEXT, number TEXT, issued_by TEXT, issue_date TEXT)`,
-  );
-  db.run(
-    `CREATE TABLE IF NOT EXISTS doc_driver_licenses (document_id INTEGER PRIMARY KEY, number TEXT, categories TEXT, issue_date TEXT, expiry_date TEXT)`,
-  );
-  db.run(
-    `CREATE TABLE IF NOT EXISTS doc_residence_permits (document_id INTEGER PRIMARY KEY, number TEXT, tax_id TEXT, country TEXT, authority TEXT, issue_date TEXT, expiry_date TEXT)`,
-  );
-  db.run(
-    `CREATE TABLE IF NOT EXISTS doc_international_passports (document_id INTEGER PRIMARY KEY, number TEXT, tax_id TEXT, country TEXT, authority TEXT, issue_date TEXT, expiry_date TEXT)`,
-  );
+  // 5. ТАБЛИЦЫ-ШАБЛОНЫ
+  db.run(`CREATE TABLE IF NOT EXISTS doc_id_cards (
+                                                    document_id INTEGER PRIMARY KEY,
+                                                    number TEXT,
+                                                    record_number TEXT,
+                                                    authority TEXT,
+                                                    issue_date TEXT,
+                                                    expiry_date TEXT,
+                                                    country TEXT
+          )`);
 
-  db.run("ALTER TABLE doc_id_cards ADD COLUMN country TEXT", () => {});
+  db.run(`CREATE TABLE IF NOT EXISTS doc_passports_old (
+                                                         document_id INTEGER PRIMARY KEY,
+                                                         series TEXT,
+                                                         number TEXT,
+                                                         issued_by TEXT,
+                                                         issue_date TEXT
+          )`);
 
-  db.run(
-    "ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER DEFAULT 0",
-    () => {},
-  );
-  db.run(
-    "ALTER TABLE users ADD COLUMN two_factor_secret TEXT DEFAULT NULL",
-    () => {},
-  );
+  db.run(`CREATE TABLE IF NOT EXISTS doc_driver_licenses (
+                                                           document_id INTEGER PRIMARY KEY,
+                                                           number TEXT,
+                                                           categories TEXT,
+                                                           issue_date TEXT,
+                                                           expiry_date TEXT
+          )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS doc_residence_permits (
+                                                             document_id INTEGER PRIMARY KEY,
+                                                             number TEXT,
+                                                             tax_id TEXT,
+                                                             country TEXT,
+                                                             authority TEXT,
+                                                             issue_date TEXT,
+                                                             expiry_date TEXT
+          )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS doc_international_passports (
+                                                                   document_id INTEGER PRIMARY KEY,
+                                                                   number TEXT,
+                                                                   tax_id TEXT,
+                                                                   country TEXT,
+                                                                   authority TEXT,
+                                                                   issue_date TEXT,
+                                                                   expiry_date TEXT
+          )`);
+
+  // Заполнение типов документов, если они отсутствуют
   db.get("SELECT count(*) as count FROM document_types", (err, row) => {
     if (row && row.count === 0) {
       const stmt = db.prepare(
@@ -115,6 +149,7 @@ db.serialize(() => {
       stmt.run(5, "Закордонний паспорт", 0);
       stmt.run(99, "Власний документ", 1);
       stmt.finalize();
+      console.log("Типи документів ініціалізовані");
     }
   });
 });
@@ -261,21 +296,21 @@ app.post("/users/:id/2fa/disable", (req, res) => {
 
 app.get("/documents/:userId", (req, res) => {
   const sql = `
-    SELECT ud.id, ud.type_id, dt.name as type_name, dt.is_custom, ud.status,
-           dic.number as id_number, dic.record_number, dic.authority as id_auth, dic.issue_date as id_iss, dic.expiry_date as id_exp, dic.country as id_cnt,
-           dp.series as pass_ser, dp.number as pass_num, dp.issued_by as pass_auth, dp.issue_date as pass_iss,
-           dl.number as lic_num, dl.categories as lic_cat, dl.issue_date as lic_iss, dl.expiry_date as lic_exp,
-           drp.number as res_num, drp.tax_id as res_tax, drp.country as res_cnt, drp.authority as res_auth, drp.issue_date as res_iss, drp.expiry_date as res_exp,
-           dip.number as int_num, dip.tax_id as int_tax, dip.country as int_cnt, dip.authority as int_auth, dip.issue_date as int_iss, dip.expiry_date as int_exp
-    FROM user_documents ud
-           JOIN document_types dt ON ud.type_id = dt.id
-           LEFT JOIN doc_id_cards dic ON ud.id = dic.document_id
-           LEFT JOIN doc_passports_old dp ON ud.id = dp.document_id
-           LEFT JOIN doc_driver_licenses dl ON ud.id = dl.document_id
-           LEFT JOIN doc_residence_permits drp ON ud.id = drp.document_id
-           LEFT JOIN doc_international_passports dip ON ud.id = dip.document_id
-    WHERE ud.user_id = ?
-  `;
+        SELECT ud.id, ud.type_id, ud.photo_url, dt.name as type_name, dt.is_custom, ud.status,
+               dic.number as id_number, dic.record_number, dic.authority as id_auth, dic.issue_date as id_iss, dic.expiry_date as id_exp, dic.country as id_cnt,
+               dp.series as pass_ser, dp.number as pass_num, dp.issued_by as pass_auth, dp.issue_date as pass_iss,
+               dl.number as lic_num, dl.categories as lic_cat, dl.issue_date as lic_iss, dl.expiry_date as lic_exp,
+               drp.number as res_num, drp.tax_id as res_tax, drp.country as res_cnt, drp.authority as res_auth, drp.issue_date as res_iss, drp.expiry_date as res_exp,
+               dip.number as int_num, dip.tax_id as int_tax, dip.country as int_cnt, dip.authority as int_auth, dip.issue_date as int_iss, dip.expiry_date as int_exp
+        FROM user_documents ud
+                 JOIN document_types dt ON ud.type_id = dt.id
+                 LEFT JOIN doc_id_cards dic ON ud.id = dic.document_id
+                 LEFT JOIN doc_passports_old dp ON ud.id = dp.document_id
+                 LEFT JOIN doc_driver_licenses dl ON ud.id = dl.document_id
+                 LEFT JOIN doc_residence_permits drp ON ud.id = drp.document_id
+                 LEFT JOIN doc_international_passports dip ON ud.id = dip.document_id
+        WHERE ud.user_id = ?
+    `;
 
   db.all(sql, [req.params.userId], async (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -303,6 +338,7 @@ app.get("/documents/:userId", (req, res) => {
           id: row.id,
           type_id: row.type_id,
           status: row.status,
+          photo_url: row.photo_url, // ТЕПЕРЬ ФОТО ПЕРЕДАЕТСЯ НА ФРОНТЕНД
           display_number:
             row.id_number ||
             row.pass_num ||
@@ -346,20 +382,25 @@ app.get("/documents/:userId", (req, res) => {
 });
 
 app.post("/documents", (req, res) => {
-  const { user_id, type_id, fields } = req.body;
+  // 1. Добавили photo_url сюда!
+  const { user_id, type_id, fields, photo_url } = req.body;
+
+  // Проверка на базовые данные
+  if (!user_id || !type_id) {
+    return res.status(400).json({ error: "user_id и type_id обов'язкові" });
+  }
 
   // 1. Создаем основную запись документа
   db.run(
-    "INSERT INTO user_documents (user_id, type_id, status) VALUES (?, ?, ?)",
-    [user_id, type_id, "active"],
+    "INSERT INTO user_documents (user_id, type_id, status, photo_url) VALUES (?, ?, ?, ?)",
+    [user_id, type_id, "active", photo_url || null], // Используем photo_url
     function (err) {
-      // ИСПОЛЬЗУЕМ ОБЫЧНУЮ ФУНКЦИЮ ДЛЯ ДОСТУПА К this.lastID
       if (err) {
         console.error("Ошибка при создании user_documents:", err.message);
         return res.status(400).json({ error: err.message });
       }
 
-      const docId = this.lastID; // Тот самый ID, который нужен для связки
+      const docId = this.lastID;
       console.log(
         `Создан документ с ID: ${docId} для пользователя: ${user_id}`,
       );
@@ -367,7 +408,6 @@ app.post("/documents", (req, res) => {
       // 2. Если это кастомный тип (99)
       if (Number(type_id) === 99) {
         if (!fields || Object.keys(fields).length === 0) {
-          console.log("Поля для кастомного документа не переданы");
           return res.json({ id: docId, success: true });
         }
 
@@ -376,16 +416,12 @@ app.post("/documents", (req, res) => {
         );
 
         Object.entries(fields).forEach(([key, val]) => {
-          console.log(`Записываем поле: ${key} = ${val} (docId: ${docId})`);
           stmt.run(docId, key, val);
         });
 
         stmt.finalize((finalizeErr) => {
-          if (finalizeErr) {
-            console.error("Ошибка при финализации полей:", finalizeErr);
+          if (finalizeErr)
             return res.status(500).json({ error: "Ошибка сохранения полей" });
-          }
-          console.log("Все кастомные поля успешно сохранены");
           res.json({ id: docId, success: true });
         });
       } else {
@@ -450,13 +486,7 @@ app.post("/documents", (req, res) => {
 
         if (sql) {
           db.run(sql, params, (err) => {
-            if (err) {
-              console.error(
-                "Ошибка при записи в дочернюю таблицу:",
-                err.message,
-              );
-              return res.status(400).json({ error: err.message });
-            }
+            if (err) return res.status(400).json({ error: err.message });
             res.json({ id: docId, success: true });
           });
         } else {
