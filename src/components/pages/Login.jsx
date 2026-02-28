@@ -13,7 +13,6 @@ function Login() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
-  // Состояния для 2FA
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [require2FA, setRequire2FA] = useState(false);
   const [tempUserId, setTempUserId] = useState(null);
@@ -25,7 +24,6 @@ function Login() {
   const handleLogin = async () => {
     const cleanPhone = phone.replace(/\D/g, "");
 
-    // Режим ввода кода 2FA
     if (require2FA) {
       if (twoFactorCode.length !== 6) {
         toaster.create({ title: "Код має містити 6 цифр", type: "error" });
@@ -51,7 +49,6 @@ function Login() {
       return;
     }
 
-    // Обычный режим (Логин + Пароль)
     if (cleanPhone.length !== 12) {
       toaster.create({ title: "Невірний номер телефону", type: "error" });
       return;
@@ -69,7 +66,6 @@ function Login() {
         password,
       });
 
-      // Если сервер говорит, что нужна 2FA
       if (data.require2FA) {
         setRequire2FA(true);
         setTempUserId(data.userId);
@@ -95,7 +91,7 @@ function Login() {
   const finishLogin = (data) => {
     dispatch(setUser({ user: data.user, token: data.token }));
     toaster.create({ title: "Успішний вхід", type: "success" });
-    navigate("/home");
+    navigate("/dashboard");
   };
 
   return (

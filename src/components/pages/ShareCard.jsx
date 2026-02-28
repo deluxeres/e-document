@@ -8,13 +8,17 @@ import {
   VStack,
   Image,
   HStack,
+  SimpleGrid,
 } from "@chakra-ui/react";
 import axios from "axios";
 import { QRCodeSVG } from "qrcode.react";
 
 const formatDate = (dateStr) => {
-  if (!dateStr || dateStr === "—") return "—";
-  return new Date(dateStr).toLocaleDateString("uk-UA");
+  if (!dateStr || dateStr === "—" || dateStr === "Безстроково")
+    return dateStr || "—";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString("uk-UA");
 };
 
 const ShareCard = () => {
@@ -50,13 +54,16 @@ const ShareCard = () => {
     );
 
   const user = doc.user;
-  const isDriver = doc.type_id === 3;
-  const qrData = `Документ: ${doc.type?.name}\nНомер: ${doc.display_number}\nВласник: ${user?.surname} ${user?.name}`;
+  const isCustom = doc.type?.is_custom === 1 || doc.type_id === 99;
+  const customFields = (doc.custom_fields || []).filter(
+    (f) => f.field_name !== "Назва документа",
+  );
+  const qrData = `Документ: ${doc.type?.name}\nВласник: ${user?.surname} ${user?.name}`;
 
   return (
-    <Center minH="80vh" p={4}>
-      <VStack gap={8}>
-        <VStack gap={1}>
+    <Center minH="100vh" p={4}>
+      <VStack gap={8} w="100%">
+        <VStack gap={1} textAlign="center">
           <Text fontSize="2xl" fontWeight="bold">
             Цифровий документ
           </Text>
@@ -66,112 +73,163 @@ const ShareCard = () => {
         </VStack>
 
         <div
+          id="card-to-save"
           className="card"
           style={{
             background: "white",
             borderRadius: "20px",
-            boxShadow: "0 20px 50px rgba(0,0,0,0.1)",
+            overflow: "hidden",
+            position: "relative",
           }}
         >
           <div className="card-wrapper">
             <div className="card-header">
               <span className="card-country">
-                {doc.display_country?.toUpperCase()}
+                {doc.display_country?.toUpperCase() || "УКРАЇНА"}
               </span>
-              <p>{doc.type?.name}</p>
+              <p>
+                {isCustom
+                  ? doc.custom_fields?.find(
+                      (f) => f.field_name === "Назва документа",
+                    )?.field_value || doc.type?.name
+                  : doc.type?.name}
+              </p>
             </div>
 
             <div className="card-general">
-              <div className="card-info__top">
-                <div className="card-info__img">
+              <HStack align="stretch" gap={4} mb={4}>
+                <Box
+                  className="card-info__img"
+                  w="120px"
+                  h="150px"
+                  flexShrink={0}
+                >
                   <Image
-                    src={user?.photo_url}
+                    src={doc.photo_url || user?.photo_url}
                     alt="User"
                     w="100%"
                     h="100%"
                     objectFit="cover"
+                    borderRadius="12px"
                   />
-                </div>
+                </Box>
 
-                <div className="card-info__text">
-                  {!isDriver && (
-                    <div className="card-info__text__birth">
-                      <span className="card-info__title">Дата народження:</span>
-                      <span className="card-info__subtitle">
-                        {formatDate(user?.birth_date)}
-                      </span>
-                    </div>
+                <VStack
+                  align="flex-start"
+                  justify="space-between"
+                  flex={1}
+                  py={1}
+                >
+                  {!isCustom ? (
+                    <>
+                      <div>
+                        <Text className="card-info__title">
+                          Дата народження:
+                        </Text>
+                        <Text className="card-info__subtitle">
+                          {formatDate(user?.birth_date)}
+                        </Text>
+                      </div>
+                      <div>
+                        <Text className="card-info__title">Дійсний до:</Text>
+                        <Text className="card-info__subtitle">
+                          {formatDate(doc.expiry_date)}
+                        </Text>
+                      </div>
+                      <div>
+                        <Text className="card-info__title">Виданий:</Text>
+                        <Text className="card-info__subtitle">
+                          {formatDate(doc.issue_date)}
+                        </Text>
+                      </div>
+                    </>
+                  ) : (
+                    customFields.slice(0, 3).map((field, idx) => (
+                      <div key={idx}>
+                        <Text className="card-info__title">
+                          {field.field_name}:
+                        </Text>
+                        <Text className="card-info__subtitle">
+                          {field.field_value || "—"}
+                        </Text>
+                      </div>
+                    ))
                   )}
-                  {isDriver && (
-                    <div className="card-info__text__birth">
-                      <span className="card-info__title">Категорії:</span>
-                      <span className="card-info__subtitle">
-                        {doc.categories || "B"}
-                      </span>
-                    </div>
-                  )}
-                  <div className="card-info__text__expiry">
-                    <span className="card-info__title">Дійсний до:</span>
-                    <span className="card-info__subtitle">
-                      {formatDate(doc.expiry_date)}
-                    </span>
-                  </div>
-                  <div className="card-info__text__sex">
-                    <span className="card-info__title">Виданий:</span>
-                    <span className="card-info__subtitle">
-                      {formatDate(doc.issue_date)}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                </VStack>
+              </HStack>
 
-              <div className="card-info__bottom">
-                <div className="card-info__text__surname">
-                  <span
-                    className="card-info__subtitle"
-                    style={{
-                      fontWeight: "bold",
-                      textTransform: "uppercase",
-                      display: "block",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    {user?.surname} {user?.name} {user?.patronymic}
-                  </span>
-                </div>
+              <Box mb={4}>
+                <Text
+                  fontSize="lg"
+                  fontWeight="bold"
+                  textTransform="uppercase"
+                  lineHeight="1.2"
+                >
+                  {user?.surname} {user?.name} {user?.patronymic}
+                </Text>
+              </Box>
 
-                <HStack gap={10} align="flex-start">
-                  <div className="card-info__text__name">
-                    <span className="card-info__title">Номер документа</span>
-                    <span
-                      className="card-info__subtitle"
-                      style={{ color: "#2b6cb0", fontWeight: "bold" }}
-                    >
-                      {doc.display_number}
-                    </span>
-                  </div>
-                </HStack>
-              </div>
+              <SimpleGrid columns={2} gap={4} mb={2}>
+                {!isCustom ? (
+                  <>
+                    <Box>
+                      <Text className="card-info__title">Номер документа</Text>
+                      <Text
+                        className="card-info__subtitle"
+                        color="#2b6cb0"
+                        fontWeight="bold"
+                      >
+                        {doc.display_number}
+                      </Text>
+                    </Box>
+                    {doc.tax_id && (
+                      <Box>
+                        <Text className="card-info__title">РНОКПП (ІПН)</Text>
+                        <Text className="card-info__subtitle" fontWeight="bold">
+                          {doc.tax_id}
+                        </Text>
+                      </Box>
+                    )}
+                  </>
+                ) : (
+                  customFields.slice(3).map((field, idx) => (
+                    <Box key={idx}>
+                      <Text className="card-info__title">
+                        {field.field_name}
+                      </Text>
+                      <Text className="card-info__subtitle" fontWeight="bold">
+                        {field.field_value || "—"}
+                      </Text>
+                    </Box>
+                  ))
+                )}
+              </SimpleGrid>
+
+              {!isCustom && doc.display_authority && (
+                <Box mt={2}>
+                  <Text className="card-info__title">Орган що видав</Text>
+                  <Text className="card-info__subtitle">
+                    {doc.display_authority}
+                  </Text>
+                </Box>
+              )}
 
               <Box
-                style={{
-                  position: "absolute",
-                  bottom: 20,
-                  right: 10,
-                  zIndex: 9,
-                }}
-                className="card-qr"
+                position="absolute"
+                bottom="20px"
+                right="20px"
                 p={1}
                 bg="white"
                 borderRadius="md"
+                boxShadow="sm"
               >
-                <QRCodeSVG value={qrData} size={65} />
+                <QRCodeSVG value={qrData} size={60} />
               </Box>
             </div>
           </div>
         </div>
 
-        <Text fontSize="xs" color="gray.400">
+        <Text fontSize="xs" color="gray.400" textAlign="center" maxW="300px">
           Цей документ є офіційним підтвердженням особи в межах платформи.
         </Text>
       </VStack>

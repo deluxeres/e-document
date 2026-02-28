@@ -8,7 +8,7 @@ import { getUserDocuments } from "../requests/api";
 function Home() {
   const user = useSelector((state) => state.user.user);
   const [documents, setDocuments] = useState([]);
-  const [isOpen, setIsOpen] = useState(false); // ОБЪЯВЛЯЕМ СОСТОЯНИЕ
+  const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchDocs = async () => {
@@ -33,7 +33,7 @@ function Home() {
       <VStack gap={6} align="center" textAlign="center" mb={10}>
         <VStack gap={1}>
           <Text fontSize="3xl" fontWeight="bold">
-            👋 {user?.name || "Руслан"}, вітаємо!
+            Цифровий архів
           </Text>
           <Text fontSize="lg" color="gray.500">
             Ваші цифрові документи в одному місці

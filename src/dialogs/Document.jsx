@@ -236,18 +236,62 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       />
                     </Select.Trigger>
                     <Select.Content>
-                      {availableTypes.map((item) => (
-                        <Select.Item
-                          item={{ label: item.name, value: item.id.toString() }}
-                          key={item.id}
-                        >
-                          {item.name}
-                        </Select.Item>
-                      ))}
+                      {/* Сначала выводим официальные шаблоны */}
+                      <Text
+                        fontSize="10px"
+                        fontWeight="bold"
+                        color="gray.400"
+                        px={3}
+                        py={2}
+                        textTransform="uppercase"
+                      >
+                        Офіційні шаблони
+                      </Text>
+
+                      {availableTypes
+                        .filter((t) => t.id !== 99)
+                        .map((item) => (
+                          <Select.Item
+                            item={{
+                              label: item.name,
+                              value: item.id.toString(),
+                            }}
+                            key={item.id}
+                          >
+                            {item.name}
+                          </Select.Item>
+                        ))}
+
+                      <Box
+                        borderTopWidth="1px"
+                        my={1}
+                        borderColor="gray.100"
+                        mx={1}
+                      />
+
+                      {availableTypes
+                        .filter((t) => t.id === 99)
+                        .map((item) => (
+                          <Select.Item
+                            item={{
+                              label: item.name,
+                              value: item.id.toString(),
+                            }}
+                            key={item.id}
+                            _hover={{ bg: "blue.100" }}
+                            borderRadius="md"
+                            mx={1}
+                            my={1}
+                          >
+                            <HStack gap={2}>
+                              <span>✨</span>
+                              <Text>{item.name}</Text>
+                            </HStack>
+                          </Select.Item>
+                        ))}
                     </Select.Content>
                   </Select.Root>
 
-                  {/* Блок загрузки изображения */}
                   {selectedType && (
                     <VStack
                       align="stretch"
@@ -303,7 +347,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                     </VStack>
                   )}
 
-                  {/* Выбор страны (не показываем для кастомного типа 99) */}
                   {selectedType && selectedType !== "99" && (
                     <Select.Root
                       collection={countryCollection}

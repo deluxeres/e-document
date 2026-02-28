@@ -6,11 +6,16 @@ import Main from "./components/pages/Main";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Registration from "./components/pages/Registration";
 import Profile from "./components/pages/Profile";
-import ShareCard from "./components/pages/ShareCard"; // Импортируем новую страницу
+import ShareCard from "./components/pages/ShareCard";
+import DashboardPage from "./components/pages/Dashboard";
 import "./index.scss";
 import { Toaster } from "./components/ui/toaster";
+import { useSelector } from "react-redux";
 
 function App() {
+  const user = useSelector((state) => state.user.user);
+  const documents = useSelector((state) => state.documents?.items || []);
+
   return (
     <div className="App">
       <Toaster />
@@ -22,6 +27,16 @@ function App() {
         <Route path="/register" element={<Registration />} />
 
         <Route path="/share/doc/:id" element={<ShareCard />} />
+
+        {/* 2. Добавляем маршрут для Дашборда */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage user={user} documents={documents} />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/home"

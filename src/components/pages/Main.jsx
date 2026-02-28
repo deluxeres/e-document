@@ -27,7 +27,6 @@ function Main() {
   return (
     <Box className="main-page" pt={10} pb={20}>
       <Container maxW="container.md" centerContent>
-        {/* Header Section */}
         <VStack mb={12} spacing={4} textAlign="center">
           <Heading className="brand-logo" fontSize={{ base: "4xl", md: "5xl" }}>
             E-document
@@ -38,7 +37,6 @@ function Main() {
           </Text>
         </VStack>
 
-        {/* Central Icon */}
         <Box mb={16}>
           <Box
             w="120px"
@@ -74,7 +72,6 @@ function Main() {
           />
         </SimpleGrid>
 
-        {/* Action Buttons */}
         <VStack spacing={4} w="100%" maxW="350px">
           {user ? (
             <Button
@@ -82,7 +79,7 @@ function Main() {
               size="lg"
               w="100%"
               h="60px"
-              onClick={() => navigate("/home")}
+              onClick={() => navigate("/dashboard")}
             >
               Мій кабінет
             </Button>
@@ -112,7 +109,6 @@ function Main() {
           )}
         </VStack>
 
-        {/* Academic Footer */}
         <VStack mt={24} spacing={2} opacity={0.8}>
           <Box h="1px" w="100px" bg="gray.300" mb={2} />
           <Text
@@ -137,7 +133,6 @@ function Main() {
   );
 }
 
-// Допоміжний компонент для функцій
 const Feature = ({ title, text, icon }) => {
   return (
     <Stack align="center" textAlign="center" spacing={4}>
@@ -156,7 +151,6 @@ const Feature = ({ title, text, icon }) => {
   );
 };
 
-// Допоміжний компонент для кроків
 const Step = ({ number, title, text }) => {
   return (
     <HStack align="start" spacing={4}>
