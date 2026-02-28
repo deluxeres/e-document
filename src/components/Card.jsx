@@ -133,7 +133,6 @@ function Card({ documents, onRefresh }) {
 
         {documents.map((doc) => {
           const isCustom = doc.type?.is_custom === 1;
-          const qrData = `Документ: ${doc.type?.name}\nВласник: ${user?.surname} ${user?.name}`;
           const shareUrl = `${window.location.origin}/share/doc/${doc.id}`;
 
           const customFields = (doc.custom_fields || []).filter(
@@ -304,7 +303,7 @@ function Card({ documents, onRefresh }) {
                         borderRadius="md"
                         boxShadow="sm"
                       >
-                        <QRCodeSVG value={qrData} size={60} />
+                        <QRCodeSVG value={shareUrl} size={60} />
                       </Box>
                     </div>
                   </div>
