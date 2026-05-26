@@ -111,7 +111,6 @@ const Dashboard = ({ user = {} }) => {
         </SimpleGrid>
 
         <SimpleGrid columns={{ base: 1, lg: 2 }} gap={6} w="100%">
-          {/* ГРАФИК */}
           <Box
             p={6}
             bg="white"

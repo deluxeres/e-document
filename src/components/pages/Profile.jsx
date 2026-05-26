@@ -10,7 +10,6 @@ import {
   SimpleGrid,
   Stack,
   Heading,
-  Separator, // Если используете Chakra v3, иначе просто Box с границей
 } from "@chakra-ui/react";
 import { toaster } from "../ui/toaster";
 import { setUser } from "../reducers/userSlice";
@@ -42,6 +41,16 @@ function Profile() {
 
   const [preview, setPreview] = useState(user?.photo_url);
   const [loading, setLoading] = useState(false);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+
+  const isProfileVerified = user?.verification_status === "verified";
+  const verificationChecks = [
+    { label: "ПІБ", done: Boolean(user?.surname && user?.name) },
+    { label: "Телефон", done: Boolean(user?.phone) },
+    { label: "Дата народження", done: Boolean(user?.birth_date) },
+    { label: "Фото профілю", done: Boolean(user?.photo_url) },
+    { label: "2FA", done: Boolean(user?.two_factor_enabled) },
+  ];
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -85,7 +94,17 @@ function Profile() {
     setLoading(true);
     try {
       await API.put(`/users/${user.id}`, formData);
-      dispatch(setUser({ user: { ...user, ...formData }, token }));
+      dispatch(
+        setUser({
+          user: {
+            ...user,
+            ...formData,
+            verification_status: "not_verified",
+            verified_at: null,
+          },
+          token,
+        }),
+      );
       toaster.create({ title: "Дані збережено", type: "success" });
     } catch (err) {
       toaster.create({ title: "Помилка", type: "error" });
@@ -94,10 +113,31 @@ function Profile() {
     }
   };
 
+  const handleVerifyProfile = async () => {
+    setVerificationLoading(true);
+    try {
+      const { data } = await API.post(`/users/${user.id}/verify-profile`);
+      dispatch(setUser({ user: data.user, token }));
+
+      if (data.verified) {
+        toaster.create({ title: "Профіль верифіковано", type: "success" });
+      } else {
+        toaster.create({
+          title: "Верифікацію не пройдено",
+          description: `Заповніть: ${data.missingFields.join(", ")}`,
+          type: "warning",
+        });
+      }
+    } catch (err) {
+      toaster.create({ title: "Помилка верифікації", type: "error" });
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
   return (
     <Box maxW="1200px" mx="auto" py={10} px={5}>
       <SimpleGrid columns={{ base: 1, lg: 3 }} gap={8}>
-        {/* ЛЕВАЯ ПАНЕЛЬ */}
         <Box
           bg="white"
           p={8}
@@ -144,17 +184,51 @@ function Profile() {
                 ID: {user?.id}
               </Text>
             </VStack>
-            <Box w="100%" p={3} bg="green.50" borderRadius="xl">
-              <Text fontSize="xs" fontWeight="bold" color="green.700">
-                ВЕРИФІКОВАНО
+            <Box
+              w="100%"
+              p={4}
+              bg={isProfileVerified ? "green.50" : "orange.50"}
+              borderRadius="xl"
+            >
+              <Text
+                fontSize="xs"
+                fontWeight="bold"
+                color={isProfileVerified ? "green.700" : "orange.700"}
+              >
+                {isProfileVerified ? "ВЕРИФІКОВАНО" : "НЕ ВЕРИФІКОВАНО"}
               </Text>
+              {user?.verified_at && (
+                <Text mt={1} fontSize="xs" color="gray.500">
+                  {new Date(user.verified_at).toLocaleDateString("uk-UA")}
+                </Text>
+              )}
             </Box>
+            <VStack w="100%" align="stretch" spacing={2}>
+              {verificationChecks.map((item) => (
+                <Text
+                  key={item.label}
+                  fontSize="xs"
+                  color={item.done ? "green.600" : "gray.500"}
+                >
+                  {item.done ? "✓" : "•"} {item.label}
+                </Text>
+              ))}
+            </VStack>
+            <Button
+              w="100%"
+              size="sm"
+              borderRadius="xl"
+              colorPalette={isProfileVerified ? "green" : "orange"}
+              variant={isProfileVerified ? "subtle" : "solid"}
+              onClick={handleVerifyProfile}
+              isLoading={verificationLoading}
+            >
+              Перевірити профіль
+            </Button>
           </VStack>
         </Box>
 
-        {/* ПРАВАЯ ПАНЕЛЬ */}
         <Stack gap={6} gridColumn={{ lg: "span 2" }}>
-          {/* Блок 1: Личные данные */}
           <Box bg="white" p={10} borderRadius="24px" boxShadow="sm">
             <Heading size="md" mb={8}>
               Особисті дані
@@ -234,21 +308,26 @@ function Profile() {
             </Button>
           </Box>
 
-          {/* Блок 2: Двухфакторная аутентификация (отдельной карточкой) */}
           <TwoFactorAuth
             user={user}
             token={token}
             onUpdate={(status) =>
               dispatch(
                 setUser({
-                  user: { ...user, two_factor_enabled: status },
+                  user: {
+                    ...user,
+                    two_factor_enabled: status,
+                    verification_status: status
+                      ? user.verification_status
+                      : "not_verified",
+                    verified_at: status ? user.verified_at : null,
+                  },
                   token,
                 }),
               )
             }
           />
 
-          {/* Блок 3: Безопасность (Пароль) */}
           <Box bg="white" p={10} borderRadius="24px" boxShadow="sm">
             <Heading size="md" mb={8}>
               Зміна паролю

@@ -50,7 +50,7 @@ const TwoFactorAuth = ({ user, token, onUpdate }) => {
         code: setupData.code,
         secret: setupData.secret,
       });
-      onUpdate(1); // Сообщаем родителю (Profile), что 2FA включена
+      onUpdate(1);
       setSetupData({ qrCode: "", secret: "", code: "" });
       toaster.create({ title: "Активовано", type: "success" });
     } catch (err) {
@@ -68,7 +68,7 @@ const TwoFactorAuth = ({ user, token, onUpdate }) => {
     if (!window.confirm("Ви впевнені, що хочете вимкнути 2FA?")) return;
     try {
       await API.post(`/users/${user.id}/2fa/disable`);
-      onUpdate(0); // Сообщаем родителю, что 2FA выключена
+      onUpdate(0);
       toaster.create({ title: "Вимкнено", type: "info" });
     } catch (err) {
       toaster.create({ title: "Помилка", type: "error" });

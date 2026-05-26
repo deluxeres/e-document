@@ -121,10 +121,7 @@ li {
   }
 }
 
-
-
 label {
-  // width: 100%;
 }
 
 .card .card-wrapper .card-back {
@@ -511,12 +508,11 @@ input {
 
 
 ::-webkit-scrollbar {
-  width: 5px; /* ширина для вертикального скролла */
-  height: 5px; /* высота для горизонтального скролла */
+  width: 5px;
+  height: 5px;
   background-color: #00000000;
 }
 
-/* ползунок скроллбара */
 ::-webkit-scrollbar-thumb {
   background-color: #000000c2;
   border-radius: 5em;
@@ -530,7 +526,6 @@ input {
   background-color: #25386100;
 }
 
-/* Добавьте это в свой CSS файл */
 .main-page {
   background: linear-gradient(180deg, #e0faff 0%, #ffe892 100%);
   min-height: 100vh;
@@ -567,7 +562,6 @@ input {
   text-align: center;
 }
 
-/* Стиль кнопок как в Дія */
 .diia-button-primary {
   background: #000 !important;
   color: white !important;

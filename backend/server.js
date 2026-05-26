@@ -52,9 +52,22 @@ db.serialize(() => {
                                              patronymic TEXT,
                                              photo_url TEXT,
                                              birth_date TEXT,
+                                             verification_status TEXT DEFAULT 'not_verified',
+                                             verified_at TEXT DEFAULT NULL,
                                              two_factor_enabled INTEGER DEFAULT 0,
                                              two_factor_secret TEXT DEFAULT NULL
           )`);
+
+  db.all("PRAGMA table_info(users)", (err, columns) => {
+    if (err) return;
+    const names = columns.map((column) => column.name);
+    if (!names.includes("verification_status")) {
+      db.run("ALTER TABLE users ADD COLUMN verification_status TEXT DEFAULT 'not_verified'");
+    }
+    if (!names.includes("verified_at")) {
+      db.run("ALTER TABLE users ADD COLUMN verified_at TEXT DEFAULT NULL");
+    }
+  });
 
   db.run(`CREATE TABLE IF NOT EXISTS document_types (
                                                       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -256,13 +269,68 @@ app.post("/users/:id/2fa/verify", (req, res) => {
 
 app.post("/users/:id/2fa/disable", (req, res) => {
   db.run(
-    "UPDATE users SET two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?",
+    "UPDATE users SET two_factor_enabled = 0, two_factor_secret = NULL, verification_status = 'not_verified', verified_at = NULL WHERE id = ?",
     [req.params.id],
     function (err) {
       if (err) return res.status(500).json({ error: "Ошибка БД" });
       res.json({ success: true });
     },
   );
+});
+
+const getMissingVerificationFields = (user) => {
+  const checks = [
+    { key: "surname", label: "Прізвище" },
+    { key: "name", label: "Ім'я" },
+    { key: "phone", label: "Телефон" },
+    { key: "birth_date", label: "Дата народження" },
+    { key: "photo_url", label: "Фото профілю" },
+  ];
+  const missing = checks
+    .filter((check) => !user?.[check.key])
+    .map((check) => check.label);
+
+  if (!user?.two_factor_enabled) {
+    missing.push("Двофакторна аутентифікація");
+  }
+
+  return missing;
+};
+
+app.post("/users/:id/verify-profile", (req, res) => {
+  db.get("SELECT * FROM users WHERE id = ?", [req.params.id], (err, user) => {
+    if (err || !user) {
+      return res.status(404).json({ error: "Користувача не знайдено" });
+    }
+
+    const missingFields = getMissingVerificationFields(user);
+    const isVerified = missingFields.length === 0;
+    const status = isVerified ? "verified" : "not_verified";
+    const verifiedAt = isVerified ? new Date().toISOString() : null;
+
+    db.run(
+      "UPDATE users SET verification_status = ?, verified_at = ? WHERE id = ?",
+      [status, verifiedAt, req.params.id],
+      (updateErr) => {
+        if (updateErr) {
+          return res.status(500).json({ error: "Помилка БД" });
+        }
+
+        db.get("SELECT * FROM users WHERE id = ?", [req.params.id], (selectErr, updatedUser) => {
+          if (selectErr || !updatedUser) {
+            return res.status(500).json({ error: "Помилка БД" });
+          }
+
+          const { password: _, two_factor_secret: __, ...userWithoutPassword } = updatedUser;
+          res.json({
+            verified: isVerified,
+            missingFields,
+            user: userWithoutPassword,
+          });
+        });
+      },
+    );
+  });
 });
 
 app.get("/documents/:userId", (req, res) => {
@@ -494,7 +562,7 @@ app.get("/document-types", (req, res) => {
 
 app.put("/users/:id", (req, res) => {
   const { name, surname, patronymic, phone, birth_date, photo_url } = req.body;
-  const sql = `UPDATE users SET name = ?, surname = ?, patronymic = ?, phone = ?, birth_date = ?, photo_url = ? WHERE id = ?`;
+  const sql = `UPDATE users SET name = ?, surname = ?, patronymic = ?, phone = ?, birth_date = ?, photo_url = ?, verification_status = 'not_verified', verified_at = NULL WHERE id = ?`;
   db.run(
     sql,
     [

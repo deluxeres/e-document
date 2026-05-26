@@ -28,7 +28,6 @@ function App() {
 
         <Route path="/share/doc/:id" element={<ShareCard />} />
 
-        {/* 2. Добавляем маршрут для Дашборда */}
         <Route
           path="/dashboard"
           element={

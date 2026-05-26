@@ -60,7 +60,6 @@ function Header() {
           )}
         </HStack>
 
-        {/* Профиль и Меню */}
         {user && (
           <HStack gap={4}>
             <HStack gap={3}>

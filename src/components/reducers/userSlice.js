@@ -12,7 +12,6 @@ export const userSlice = createSlice({
         setUser: (state, action) => {
             state.user = action.payload.user;
             state.token = action.payload.token;
-            // сохраняем в localStorage
             localStorage.setItem('userData', JSON.stringify(action.payload));
         },
         logout: (state) => {

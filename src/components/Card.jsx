@@ -165,7 +165,6 @@ function Card({ documents, onRefresh }) {
                           flexShrink={0}
                         >
                           <Image
-                            /* ИЗМЕНЕНО: Сначала пытаемся взять фото документа, затем фото юзера */
                             src={tempBase64 || doc.photo_url || user?.photo_url}
                             alt="Document Photo"
                             w="100%"

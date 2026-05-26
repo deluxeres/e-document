@@ -26,7 +26,7 @@ function Registration() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null); // Для показа выбранного фото
+  const [preview, setPreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const today = new Date().toISOString().split("T")[0];
 
