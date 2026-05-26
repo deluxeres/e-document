@@ -1,0 +1,8 @@
+front end start:
+-- npm run start
+
+backend start
+-- cd backend
+-- node server.js
+
+bd - sqlLiteStudio

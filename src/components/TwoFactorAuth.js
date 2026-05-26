@@ -108,7 +108,6 @@ const TwoFactorAuth = ({ user, token, onUpdate }) => {
               Відскануйте цей код:
             </Text>
 
-            {/* ИСПРАВЛЕНО: Используем обычный Image для Base64 строки */}
             <Box
               p={2}
               bg="white"

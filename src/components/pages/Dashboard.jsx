@@ -205,7 +205,7 @@ const Dashboard = ({ user = {} }) => {
       <VStack mt={24} spacing={2} opacity={0.8}>
         <Box h="1px" w="100px" bg="gray.300" mb={2} />
         <Text fontSize="sm" color="gray.600" textAlign="center">
-          E-document v1.0.4 • 2026 Всі права захищені
+          E-document v1.0.4 • 2026 Диплом бакалавр
         </Text>
       </VStack>
     </Box>

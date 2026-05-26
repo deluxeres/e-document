@@ -103,7 +103,6 @@ function Login() {
 
           <div className="login-form">
             {!require2FA ? (
-              // Форма логина
               <>
                 <InputMask
                   mask="+380 (99) 999 99 99"
@@ -131,7 +130,6 @@ function Login() {
                 />
               </>
             ) : (
-              // Форма 2FA
               <VStack gap={4} py={2}>
                 <Text fontSize="sm" textAlign="center" color="gray.600">
                   Введіть 6-значний код підтвердження з вашого застосунку

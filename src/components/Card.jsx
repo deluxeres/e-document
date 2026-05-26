@@ -41,7 +41,6 @@ function Card({ documents, onRefresh }) {
 
     setLoading(true);
     try {
-      // Пріоритет фото: спочатку фото документа, якщо немає — фото профілю
       const photoToExport = doc.photo_url || user.photo_url;
 
       if (photoToExport) {
@@ -49,7 +48,6 @@ function Card({ documents, onRefresh }) {
           `http://localhost:4000/get-base64?url=${encodeURIComponent(photoToExport)}`,
         );
         setTempBase64(response.data.base64);
-        // Невелика затримка, щоб стейт оновився і картинка перерендерилась перед скріншотом
         await new Promise((resolve) => setTimeout(resolve, 400));
       }
 

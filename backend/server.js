@@ -21,9 +21,6 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// ===========================
-// НАСТРОЙКА ЗАГРУЗКИ ФОТО
-// ===========================
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
@@ -45,11 +42,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({ storage, fileFilter });
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ===========================
-// ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ
-// ===========================
 db.serialize(() => {
-  // 1. ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ (сразу со всеми полями)
   db.run(`CREATE TABLE IF NOT EXISTS users (
                                              id INTEGER PRIMARY KEY AUTOINCREMENT,
                                              phone TEXT UNIQUE,
@@ -63,14 +56,12 @@ db.serialize(() => {
                                              two_factor_secret TEXT DEFAULT NULL
           )`);
 
-  // 2. ТИПЫ ДОКУМЕНТОВ
   db.run(`CREATE TABLE IF NOT EXISTS document_types (
                                                       id INTEGER PRIMARY KEY AUTOINCREMENT,
                                                       name TEXT,
                                                       is_custom INTEGER DEFAULT 0
           )`);
 
-  // 3. ОСНОВНАЯ ТАБЛИЦА ДОКУМЕНТОВ (photo_url добавлен сюда сразу)
   db.run(`CREATE TABLE IF NOT EXISTS user_documents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER, 
@@ -80,7 +71,6 @@ db.serialize(() => {
     FOREIGN KEY(user_id) REFERENCES users(id)
   )`);
 
-  // 4. ДИНАМИЧЕСКИЕ ПОЛЯ (для ID 99)
   db.run(`CREATE TABLE IF NOT EXISTS document_dynamic_fields (
                                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
                                                                document_id INTEGER,
@@ -89,7 +79,6 @@ db.serialize(() => {
                                                                FOREIGN KEY(document_id) REFERENCES user_documents(id) ON DELETE CASCADE
     )`);
 
-  // 5. ТАБЛИЦЫ-ШАБЛОНЫ
   db.run(`CREATE TABLE IF NOT EXISTS doc_id_cards (
                                                     document_id INTEGER PRIMARY KEY,
                                                     number TEXT,
@@ -136,7 +125,6 @@ db.serialize(() => {
                                                                    expiry_date TEXT
           )`);
 
-  // Заполнение типов документов, если они отсутствуют
   db.get("SELECT count(*) as count FROM document_types", (err, row) => {
     if (row && row.count === 0) {
       const stmt = db.prepare(
@@ -153,10 +141,6 @@ db.serialize(() => {
     }
   });
 });
-
-// ===========================
-// ЭНДПОИНТЫ АУТЕНТИФИКАЦИИ
-// ===========================
 
 app.post("/upload", upload.single("photo"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Файл не обрано" });
@@ -195,20 +179,16 @@ app.post("/login", (req, res) => {
       return res.status(401).json({ error: "Невірні дані для входу" });
     }
 
-    // ПРОВЕРКА 2FA
     if (user.two_factor_enabled) {
-      // Если включено — возвращаем флаг и ID пользователя, но НЕ токен
       return res.json({ require2FA: true, userId: user.id });
     }
 
-    // Если выключено — стандартный вход с выдачей токена
     const token = jwt.sign({ id: user.id }, SECRET, { expiresIn: "24h" });
     const { password: _, two_factor_secret: __, ...userWithoutPassword } = user;
     res.json({ token, user: userWithoutPassword });
   });
 });
 
-// --- ЭТАП 2: Вход по коду 2FA ---
 app.post("/login/2fa", (req, res) => {
   const { userId, code } = req.body;
 
@@ -236,9 +216,6 @@ app.post("/login/2fa", (req, res) => {
   });
 });
 
-// --- НАСТРОЙКА 2FA (В профиле) ---
-
-// 1. Генерация QR-кода и секрета
 app.post("/users/:id/2fa/setup", (req, res) => {
   const secret = speakeasy.generateSecret({
     name: `E-document (ID: ${req.params.id})`,
@@ -247,13 +224,12 @@ app.post("/users/:id/2fa/setup", (req, res) => {
   QRCode.toDataURL(secret.otpauth_url, (err, data_url) => {
     if (err) return res.status(500).json({ error: "Ошибка генерации QR" });
     res.json({
-      secret: secret.base32, // Отправляем на фронт для верификации
-      qrCode: data_url, // Отправляем картинку для сканирования
+      secret: secret.base32,
+      qrCode: data_url,
     });
   });
 });
 
-// 2. Первичная проверка и активация в базе
 app.post("/users/:id/2fa/verify", (req, res) => {
   const { id } = req.params;
   const { code, secret } = req.body;
@@ -278,7 +254,6 @@ app.post("/users/:id/2fa/verify", (req, res) => {
   }
 });
 
-// 3. Отключение 2FA
 app.post("/users/:id/2fa/disable", (req, res) => {
   db.run(
     "UPDATE users SET two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?",
@@ -289,10 +264,6 @@ app.post("/users/:id/2fa/disable", (req, res) => {
     },
   );
 });
-
-// ===========================
-// ЭНДПОИНТЫ ДОКУМЕНТОВ
-// ===========================
 
 app.get("/documents/:userId", (req, res) => {
   const sql = `
@@ -338,7 +309,7 @@ app.get("/documents/:userId", (req, res) => {
           id: row.id,
           type_id: row.type_id,
           status: row.status,
-          photo_url: row.photo_url, // ТЕПЕРЬ ФОТО ПЕРЕДАЕТСЯ НА ФРОНТЕНД
+          photo_url: row.photo_url,
           display_number:
             row.id_number ||
             row.pass_num ||
@@ -382,30 +353,23 @@ app.get("/documents/:userId", (req, res) => {
 });
 
 app.post("/documents", (req, res) => {
-  // 1. Добавили photo_url сюда!
   const { user_id, type_id, fields, photo_url } = req.body;
 
-  // Проверка на базовые данные
   if (!user_id || !type_id) {
     return res.status(400).json({ error: "user_id и type_id обов'язкові" });
   }
 
-  // 1. Создаем основную запись документа
   db.run(
     "INSERT INTO user_documents (user_id, type_id, status, photo_url) VALUES (?, ?, ?, ?)",
-    [user_id, type_id, "active", photo_url || null], // Используем photo_url
+    [user_id, type_id, "active", photo_url || null],
     function (err) {
       if (err) {
-        console.error("Ошибка при создании user_documents:", err.message);
+        console.error("Помилка при створенні user_documents:", err.message);
         return res.status(400).json({ error: err.message });
       }
 
       const docId = this.lastID;
-      console.log(
-        `Создан документ с ID: ${docId} для пользователя: ${user_id}`,
-      );
 
-      // 2. Если это кастомный тип (99)
       if (Number(type_id) === 99) {
         if (!fields || Object.keys(fields).length === 0) {
           return res.json({ id: docId, success: true });
@@ -421,11 +385,12 @@ app.post("/documents", (req, res) => {
 
         stmt.finalize((finalizeErr) => {
           if (finalizeErr)
-            return res.status(500).json({ error: "Ошибка сохранения полей" });
+            return res
+              .status(500)
+              .json({ error: "Помилка збереження полів документу" });
           res.json({ id: docId, success: true });
         });
       } else {
-        // 3. Если это шаблонный документ (1-5)
         let sql = "";
         let params = [];
 

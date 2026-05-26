@@ -34,17 +34,14 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
   const [loading, setLoading] = useState(false);
   const [countries, setCountries] = useState([]);
 
-  // Состояния для фото документа
   const [docPhoto, setDocPhoto] = useState(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Состояние для кастомных полей (когда выбран тип "Власний документ" ID 99)
   const [customFields, setCustomFields] = useState([
     { id: Date.now(), name: "", value: "" },
   ]);
 
-  // Загрузка типов из БД
   useEffect(() => {
     if (isOpen) {
       getDocumentTypes()
@@ -53,7 +50,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     }
   }, [isOpen]);
 
-  // Загрузка стран
   useEffect(() => {
     fetch("https://restcountries.com/v3.1/all?fields=name,flags,translations")
       .then((res) => res.json())
@@ -75,7 +71,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     [countries],
   );
 
-  // "Власний документ" (99) всегда доступен, остальные — если их еще нет у юзера
   const availableTypes = useMemo(() => {
     return dbTypes.filter(
       (t) => t.id === 99 || !existingDocs.some((doc) => doc.type_id === t.id),
@@ -97,7 +92,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Логика загрузки фото
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -120,7 +114,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     }
   };
 
-  // Управление динамическими полями
   const addCustomField = () => {
     setCustomFields([...customFields, { id: Date.now(), name: "", value: "" }]);
   };
@@ -145,7 +138,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
       return;
     }
 
-    // ОБЯЗАТЕЛЬНАЯ ПРОВЕРКА ФОТО
     if (!docPhoto) {
       toaster.create({
         title: "Будь ласка, додайте фото документа",
@@ -158,7 +150,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
     try {
       let payload = { ...formData };
 
-      // Обработка кастомных полей для типа 99
       if (selectedType === "99") {
         const dynamicFields = {};
         dynamicFields["Назва документа"] =
@@ -171,12 +162,10 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
         payload = dynamicFields;
       }
 
-      // Передаем docPhoto в запрос
       await createDocument(user.id, parseInt(selectedType), payload, docPhoto);
 
       toaster.create({ title: "Документ успішно створено", type: "success" });
 
-      // Сброс
       setDocPhoto(null);
       setSelectedType(null);
       setFormData({});
@@ -217,7 +206,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
             <form onSubmit={handleSubmit}>
               <DialogBody>
                 <VStack gap={4} align="stretch">
-                  {/* Выбор типа */}
                   <Select.Root
                     collection={collection}
                     value={selectedType ? [selectedType] : []}
@@ -236,7 +224,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       />
                     </Select.Trigger>
                     <Select.Content>
-                      {/* Сначала выводим официальные шаблоны */}
                       <Text
                         fontSize="10px"
                         fontWeight="bold"
@@ -371,7 +358,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                   )}
 
                   <Box minH="240px">
-                    {/* РЕЖИМ: ВЛАСНИЙ ДОКУМЕНТ (99) */}
                     {selectedType === "99" && (
                       <Stack gap={3}>
                         <Input
@@ -436,7 +422,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       </Stack>
                     )}
 
-                    {/* ШАБЛОН: ID КАРТА (1) */}
                     {selectedType === "1" && (
                       <Stack gap={3}>
                         <Input
@@ -479,7 +464,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       </Stack>
                     )}
 
-                    {/* ШАБЛОН: ПАСПОРТ КНИЖЕЧКА (2) */}
                     {selectedType === "2" && (
                       <Stack gap={3}>
                         <HStack>
@@ -516,7 +500,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       </Stack>
                     )}
 
-                    {/* ШАБЛОН: ВОДІЙСЬКЕ (3) */}
                     {selectedType === "3" && (
                       <Stack gap={3}>
                         <Input
@@ -554,7 +537,6 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
                       </Stack>
                     )}
 
-                    {/* ШАБЛОН: ПОСВІДКА / ЗАКОРДОННИЙ (4, 5) */}
                     {(selectedType === "4" || selectedType === "5") && (
                       <Stack gap={3}>
                         <Input
