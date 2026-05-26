@@ -11,9 +11,7 @@ import {
   Image,
 } from "@chakra-ui/react";
 import { toaster } from "./ui/toaster";
-import axios from "axios";
-
-const API = axios.create({ baseURL: "http://localhost:4000" });
+import API from "../requests/api";
 
 const TwoFactorAuth = ({ user, token, onUpdate }) => {
   const [setupData, setSetupData] = useState({

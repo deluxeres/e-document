@@ -4,10 +4,8 @@ import { Input, VStack, Text, Button } from "@chakra-ui/react";
 import { toaster } from "../ui/toaster";
 import { useDispatch } from "react-redux";
 import { setUser } from "../reducers/userSlice";
-import axios from "axios";
 import InputMask from "react-input-mask";
-
-const API = axios.create({ baseURL: "http://localhost:4000" });
+import API from "../../requests/api";
 
 function Login() {
   const [phone, setPhone] = useState("");

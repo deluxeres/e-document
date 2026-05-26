@@ -1,12 +1,35 @@
 import axios from "axios";
 
+export const API_BASE_URL =
+  process.env.REACT_APP_API_URL || "http://localhost:4000";
+
 const API = axios.create({
-  baseURL: "http://localhost:4000",
+  baseURL: API_BASE_URL,
+});
+
+API.interceptors.request.use((config) => {
+  let savedUser = null;
+
+  try {
+    savedUser = JSON.parse(localStorage.getItem("userData")) || null;
+  } catch {
+    localStorage.removeItem("userData");
+  }
+
+  const token = savedUser?.token;
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });
 
 export const setToken = (token) => {
   if (token) {
     API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  } else {
+    delete API.defaults.headers.common["Authorization"];
   }
 };
 
@@ -19,8 +42,7 @@ export const registerUser = (phone, password, name) => {
 };
 
 export const createDocument = (userId, typeId, fields, photoUrl) => {
-  return axios.post("http://localhost:4000/documents", {
-    user_id: userId,
+  return API.post("/documents", {
     type_id: typeId,
     fields: fields,
     photo_url: photoUrl,
@@ -39,33 +61,12 @@ export const getDocumentTypes = () => {
   return API.get("/document-types");
 };
 
-export const getPublicDocument = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const document = await Document.findOne({
-      where: { id },
-      include: [
-        {
-          model: User,
-          attributes: [
-            "name",
-            "surname",
-            "patronymic",
-            "photo_url",
-            "birth_date",
-          ],
-        },
-      ],
-    });
+export const getPublicDocument = (shareToken) => {
+  return API.get(`/public-document/${shareToken}`);
+};
 
-    if (!document) {
-      return res.status(404).json({ message: "Документ не знайдено" });
-    }
-
-    res.json(document);
-  } catch (error) {
-    res.status(500).json({ message: "Помилка сервера" });
-  }
+export const getImageAsBase64 = (url) => {
+  return API.get(`/get-base64?url=${encodeURIComponent(url)}`);
 };
 
 export default API;

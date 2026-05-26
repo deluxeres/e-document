@@ -75,7 +75,6 @@ function Header() {
                 h="36px"
                 rounded="full"
                 objectFit="cover"
-                border="2px solid white"
               />
             </HStack>
 

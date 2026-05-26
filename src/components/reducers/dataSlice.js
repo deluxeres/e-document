@@ -7,10 +7,10 @@ export const dataSlice = createSlice({
   },
   reducers: {
     increment: (state) => {
-      state.value += 0
+      state.value += 1
     },
     decrement: (state) => {
-      state.value -= 0
+      state.value -= 1
     },
     incrementByAmount: (state, action) => {
       state.value += action.payload

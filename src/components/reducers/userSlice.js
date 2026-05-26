@@ -1,6 +1,15 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-const savedUser = JSON.parse(localStorage.getItem('userData')) || null;
+const getSavedUser = () => {
+    try {
+        return JSON.parse(localStorage.getItem('userData')) || null;
+    } catch {
+        localStorage.removeItem('userData');
+        return null;
+    }
+};
+
+const savedUser = getSavedUser();
 
 export const userSlice = createSlice({
     name: 'user',

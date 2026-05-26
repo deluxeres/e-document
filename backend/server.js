@@ -7,6 +7,7 @@ import axios from "axios";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import speakeasy from "speakeasy";
 import QRCode from "qrcode";
@@ -14,12 +15,71 @@ import QRCode from "qrcode";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const SECRET = "SUPER_SECRET_KEY";
+const loadEnvFile = () => {
+  const envPath = path.join(__dirname, ".env");
+  if (!fs.existsSync(envPath)) return;
+
+  fs.readFileSync(envPath, "utf8")
+    .split(/\r?\n/)
+    .forEach((line) => {
+      const match = line.match(/^([^=]+)=(.*)$/);
+      if (!match) return;
+
+      const key = match[1].trim();
+      const value = match[2].trim().replace(/^["']|["']$/g, "");
+      if (key && process.env[key] === undefined) {
+        process.env[key] = value;
+      }
+    });
+};
+
+loadEnvFile();
+
+const SECRET = process.env.JWT_SECRET || "development_secret_change_before_deploy";
+const PORT = process.env.PORT || 4000;
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "*";
 const db = new sqlite3.Database("./data.db");
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: CLIENT_ORIGIN === "*" ? true : CLIENT_ORIGIN }));
 app.use(express.json({ limit: "10mb" }));
+
+const generateShareToken = () => crypto.randomBytes(24).toString("hex");
+const normalizePhone = (phone) => (phone ? phone.replace(/\D/g, "") : "");
+const isValidPassword = (password) =>
+  typeof password === "string" && password.length >= 6;
+
+const getSafeUser = (user) => {
+  const { password: _, two_factor_secret: __, ...safeUser } = user;
+  return safeUser;
+};
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return res.status(401).json({ error: "Потрібна авторизація" });
+  }
+
+  jwt.verify(token, SECRET, (err, payload) => {
+    if (err) {
+      return res.status(403).json({ error: "Недійсний токен" });
+    }
+    req.user = payload;
+    next();
+  });
+};
+
+const requireSameUser = (paramName = "id") => (req, res, next) => {
+  if (Number(req.params[paramName]) !== Number(req.user.id)) {
+    return res.status(403).json({ error: "Немає доступу до цих даних" });
+  }
+  next();
+};
 
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -39,8 +99,24 @@ const fileFilter = (req, file, cb) => {
   else cb(new Error("Недопустимий формат файлу. Тільки зображення!"), false);
 };
 
-const upload = multer({ storage, fileFilter });
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+const uploadPhoto = (req, res, next) => {
+  upload.single("photo")(req, res, (err) => {
+    if (!err) return next();
+    return res.status(400).json({
+      error:
+        err.code === "LIMIT_FILE_SIZE"
+          ? "Файл завеликий. Максимальний розмір 5MB"
+          : err.message,
+    });
+  });
+};
 
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -81,8 +157,36 @@ db.serialize(() => {
     type_id INTEGER, 
     status TEXT,
     photo_url TEXT,
+    share_token TEXT,
     FOREIGN KEY(user_id) REFERENCES users(id)
   )`);
+
+  db.all("PRAGMA table_info(user_documents)", (err, columns) => {
+    if (err) return;
+    const names = columns.map((column) => column.name);
+    const fillMissingTokens = () => {
+      db.all(
+        "SELECT id FROM user_documents WHERE share_token IS NULL OR share_token = ''",
+        (selectErr, rows) => {
+          if (selectErr) return;
+          rows.forEach((row) => {
+            db.run("UPDATE user_documents SET share_token = ? WHERE id = ?", [
+              generateShareToken(),
+              row.id,
+            ]);
+          });
+        },
+      );
+    };
+
+    if (!names.includes("share_token")) {
+      db.run("ALTER TABLE user_documents ADD COLUMN share_token TEXT", fillMissingTokens);
+    } else {
+      fillMissingTokens();
+    }
+
+    db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_documents_share_token ON user_documents(share_token)");
+  });
 
   db.run(`CREATE TABLE IF NOT EXISTS document_dynamic_fields (
                                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,19 +259,29 @@ db.serialize(() => {
   });
 });
 
-app.post("/upload", upload.single("photo"), (req, res) => {
+app.post("/upload", uploadPhoto, (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Файл не обрано" });
-  res.json({ url: `http://localhost:4000/uploads/${req.file.filename}` });
+  res.json({ url: `${PUBLIC_BASE_URL}/uploads/${req.file.filename}` });
 });
 
 app.post("/register", (req, res) => {
   const { phone, password, name, surname, patronymic, photo_url, birth_date } =
     req.body;
+  const cleanPhone = normalizePhone(phone);
+
+  if (cleanPhone.length !== 12) {
+    return res.status(400).json({ error: "Некоректний номер телефону" });
+  }
+
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ error: "Пароль має містити мінімум 6 символів" });
+  }
+
   const hash = bcrypt.hashSync(password, 8);
   db.run(
     `INSERT INTO users (phone, password, name, surname, patronymic, photo_url, birth_date) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
-      phone ? phone.replace(/\D/g, "") : "",
+      cleanPhone,
       hash,
       name,
       surname,
@@ -185,7 +299,7 @@ app.post("/register", (req, res) => {
 
 app.post("/login", (req, res) => {
   const { phone, password } = req.body;
-  const cleanPhone = phone ? phone.replace(/\D/g, "") : "";
+  const cleanPhone = normalizePhone(phone);
 
   db.get("SELECT * FROM users WHERE phone = ?", [cleanPhone], (err, user) => {
     if (err || !user || !bcrypt.compareSync(password, user.password)) {
@@ -197,8 +311,7 @@ app.post("/login", (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id }, SECRET, { expiresIn: "24h" });
-    const { password: _, two_factor_secret: __, ...userWithoutPassword } = user;
-    res.json({ token, user: userWithoutPassword });
+    res.json({ token, user: getSafeUser(user) });
   });
 });
 
@@ -217,19 +330,14 @@ app.post("/login/2fa", (req, res) => {
 
     if (verified) {
       const token = jwt.sign({ id: user.id }, SECRET, { expiresIn: "24h" });
-      const {
-        password: _,
-        two_factor_secret: __,
-        ...userWithoutPassword
-      } = user;
-      res.json({ token, user: userWithoutPassword });
+      res.json({ token, user: getSafeUser(user) });
     } else {
       res.status(400).json({ error: "Невірний код підтвердження" });
     }
   });
 });
 
-app.post("/users/:id/2fa/setup", (req, res) => {
+app.post("/users/:id/2fa/setup", authenticateToken, requireSameUser(), (req, res) => {
   const secret = speakeasy.generateSecret({
     name: `E-document (ID: ${req.params.id})`,
   });
@@ -243,7 +351,7 @@ app.post("/users/:id/2fa/setup", (req, res) => {
   });
 });
 
-app.post("/users/:id/2fa/verify", (req, res) => {
+app.post("/users/:id/2fa/verify", authenticateToken, requireSameUser(), (req, res) => {
   const { id } = req.params;
   const { code, secret } = req.body;
 
@@ -267,7 +375,7 @@ app.post("/users/:id/2fa/verify", (req, res) => {
   }
 });
 
-app.post("/users/:id/2fa/disable", (req, res) => {
+app.post("/users/:id/2fa/disable", authenticateToken, requireSameUser(), (req, res) => {
   db.run(
     "UPDATE users SET two_factor_enabled = 0, two_factor_secret = NULL, verification_status = 'not_verified', verified_at = NULL WHERE id = ?",
     [req.params.id],
@@ -297,7 +405,7 @@ const getMissingVerificationFields = (user) => {
   return missing;
 };
 
-app.post("/users/:id/verify-profile", (req, res) => {
+app.post("/users/:id/verify-profile", authenticateToken, requireSameUser(), (req, res) => {
   db.get("SELECT * FROM users WHERE id = ?", [req.params.id], (err, user) => {
     if (err || !user) {
       return res.status(404).json({ error: "Користувача не знайдено" });
@@ -321,11 +429,10 @@ app.post("/users/:id/verify-profile", (req, res) => {
             return res.status(500).json({ error: "Помилка БД" });
           }
 
-          const { password: _, two_factor_secret: __, ...userWithoutPassword } = updatedUser;
           res.json({
             verified: isVerified,
             missingFields,
-            user: userWithoutPassword,
+            user: getSafeUser(updatedUser),
           });
         });
       },
@@ -333,9 +440,9 @@ app.post("/users/:id/verify-profile", (req, res) => {
   });
 });
 
-app.get("/documents/:userId", (req, res) => {
+app.get("/documents/:userId", authenticateToken, requireSameUser("userId"), (req, res) => {
   const sql = `
-        SELECT ud.id, ud.type_id, ud.photo_url, dt.name as type_name, dt.is_custom, ud.status,
+        SELECT ud.id, ud.type_id, ud.photo_url, ud.share_token, dt.name as type_name, dt.is_custom, ud.status,
                dic.number as id_number, dic.record_number, dic.authority as id_auth, dic.issue_date as id_iss, dic.expiry_date as id_exp, dic.country as id_cnt,
                dp.series as pass_ser, dp.number as pass_num, dp.issued_by as pass_auth, dp.issue_date as pass_iss,
                dl.number as lic_num, dl.categories as lic_cat, dl.issue_date as lic_iss, dl.expiry_date as lic_exp,
@@ -378,6 +485,7 @@ app.get("/documents/:userId", (req, res) => {
           type_id: row.type_id,
           status: row.status,
           photo_url: row.photo_url,
+          share_token: row.share_token,
           display_number:
             row.id_number ||
             row.pass_num ||
@@ -420,16 +528,19 @@ app.get("/documents/:userId", (req, res) => {
   });
 });
 
-app.post("/documents", (req, res) => {
-  const { user_id, type_id, fields, photo_url } = req.body;
+app.post("/documents", authenticateToken, (req, res) => {
+  const { type_id, fields, photo_url } = req.body;
+  const user_id = req.user.id;
 
   if (!user_id || !type_id) {
     return res.status(400).json({ error: "user_id и type_id обов'язкові" });
   }
 
+  const shareToken = generateShareToken();
+
   db.run(
-    "INSERT INTO user_documents (user_id, type_id, status, photo_url) VALUES (?, ?, ?, ?)",
-    [user_id, type_id, "active", photo_url || null],
+    "INSERT INTO user_documents (user_id, type_id, status, photo_url, share_token) VALUES (?, ?, ?, ?, ?)",
+    [user_id, type_id, "active", photo_url || null, shareToken],
     function (err) {
       if (err) {
         console.error("Помилка при створенні user_documents:", err.message);
@@ -530,7 +641,7 @@ app.post("/documents", (req, res) => {
   );
 });
 
-app.delete("/documents/:userId/:documentId", (req, res) => {
+app.delete("/documents/:userId/:documentId", authenticateToken, requireSameUser("userId"), (req, res) => {
   const { documentId } = req.params;
   const tables = [
     "document_dynamic_fields",
@@ -541,16 +652,51 @@ app.delete("/documents/:userId/:documentId", (req, res) => {
     "doc_international_passports",
     "user_documents",
   ];
-  db.serialize(() => {
-    db.run("BEGIN TRANSACTION");
-    tables.forEach((t) =>
-      db.run(
-        `DELETE FROM ${t} WHERE ${t === "user_documents" ? "id" : "document_id"} = ?`,
-        [documentId],
-      ),
-    );
-    db.run("COMMIT", () => res.json({ success: true }));
-  });
+  db.get(
+    "SELECT id FROM user_documents WHERE id = ? AND user_id = ?",
+    [documentId, req.user.id],
+    (err, document) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!document) return res.status(404).json({ error: "Документ не знайдено" });
+
+      db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        tables.forEach((t) =>
+          db.run(
+            `DELETE FROM ${t} WHERE ${t === "user_documents" ? "id" : "document_id"} = ?`,
+            [documentId],
+          ),
+        );
+        db.run("COMMIT", () => res.json({ success: true }));
+      });
+    },
+  );
+});
+
+app.post("/documents/:documentId/share-token", authenticateToken, (req, res) => {
+  const shareToken = generateShareToken();
+  db.run(
+    "UPDATE user_documents SET share_token = ? WHERE id = ? AND user_id = ?",
+    [shareToken, req.params.documentId, req.user.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: "Документ не знайдено" });
+      res.json({ share_token: shareToken });
+    },
+  );
+});
+
+app.put("/documents/:documentId/revoke-share", authenticateToken, (req, res) => {
+  const shareToken = generateShareToken();
+  db.run(
+    "UPDATE user_documents SET share_token = ? WHERE id = ? AND user_id = ?",
+    [shareToken, req.params.documentId, req.user.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: "Документ не знайдено" });
+      res.json({ share_token: shareToken });
+    },
+  );
 });
 
 app.get("/document-types", (req, res) => {
@@ -560,7 +706,7 @@ app.get("/document-types", (req, res) => {
   });
 });
 
-app.put("/users/:id", (req, res) => {
+app.put("/users/:id", authenticateToken, requireSameUser(), (req, res) => {
   const { name, surname, patronymic, phone, birth_date, photo_url } = req.body;
   const sql = `UPDATE users SET name = ?, surname = ?, patronymic = ?, phone = ?, birth_date = ?, photo_url = ?, verification_status = 'not_verified', verified_at = NULL WHERE id = ?`;
   db.run(
@@ -569,7 +715,7 @@ app.put("/users/:id", (req, res) => {
       name,
       surname,
       patronymic,
-      phone ? phone.replace(/\D/g, "") : "",
+      normalizePhone(phone),
       birth_date,
       photo_url,
       req.params.id,
@@ -581,8 +727,12 @@ app.put("/users/:id", (req, res) => {
   );
 });
 
-app.put("/users/:id/password", (req, res) => {
+app.put("/users/:id/password", authenticateToken, requireSameUser(), (req, res) => {
   const { oldPassword, newPassword } = req.body;
+  if (!isValidPassword(newPassword)) {
+    return res.status(400).json({ error: "Новий пароль має містити мінімум 6 символів" });
+  }
+
   db.get(
     "SELECT password FROM users WHERE id = ?",
     [req.params.id],
@@ -602,9 +752,16 @@ app.put("/users/:id/password", (req, res) => {
   );
 });
 
-app.get("/get-base64", async (req, res) => {
+app.get("/get-base64", authenticateToken, async (req, res) => {
   try {
-    const response = await axios.get(req.query.url, {
+    const requestedUrl = String(req.query.url || "");
+    const uploadBaseUrl = `${PUBLIC_BASE_URL}/uploads/`;
+
+    if (!requestedUrl.startsWith(uploadBaseUrl)) {
+      return res.status(400).json({ error: "Недозволене посилання на файл" });
+    }
+
+    const response = await axios.get(requestedUrl, {
       responseType: "arraybuffer",
     });
     const base64 = Buffer.from(response.data, "binary").toString("base64");
@@ -616,7 +773,7 @@ app.get("/get-base64", async (req, res) => {
   }
 });
 
-app.get("/public-document/:documentId", (req, res) => {
+app.get("/public-document/:shareToken", (req, res) => {
   const sql = `
     SELECT ud.*, dt.name as type_name, dt.is_custom, u.name as user_name, u.surname as user_surname, u.patronymic as user_patronymic, u.photo_url as user_photo, u.birth_date as user_birth,
     dic.number as id_num, dic.authority as id_auth, dic.issue_date as id_iss, dic.expiry_date as id_exp, dic.country as id_cnt,
@@ -632,9 +789,9 @@ app.get("/public-document/:documentId", (req, res) => {
     LEFT JOIN doc_driver_licenses dl ON ud.id = dl.document_id
     LEFT JOIN doc_residence_permits drp ON ud.id = drp.document_id
     LEFT JOIN doc_international_passports dip ON ud.id = dip.document_id
-    WHERE ud.id = ?
+    WHERE ud.share_token = ?
   `;
-  db.get(sql, [req.params.documentId], async (err, row) => {
+  db.get(sql, [req.params.shareToken], async (err, row) => {
     if (!row) return res.status(404).json({ error: "Not found" });
     let customFields = [];
     if (row.is_custom === 1) {
@@ -662,4 +819,4 @@ app.get("/public-document/:documentId", (req, res) => {
   });
 });
 
-app.listen(4000, () => console.log("Server running on port 4000"));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

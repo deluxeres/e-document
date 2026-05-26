@@ -10,8 +10,8 @@ import {
   HStack,
   SimpleGrid,
 } from "@chakra-ui/react";
-import axios from "axios";
 import { QRCodeSVG } from "qrcode.react";
+import { getPublicDocument } from "../../requests/api";
 
 const formatDate = (dateStr) => {
   if (!dateStr || dateStr === "—" || dateStr === "Безстроково")
@@ -28,8 +28,7 @@ const ShareCard = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios
-      .get(`http://localhost:4000/public-document/${id}`)
+    getPublicDocument(id)
       .then((res) => {
         setDoc(res.data);
         setLoading(false);

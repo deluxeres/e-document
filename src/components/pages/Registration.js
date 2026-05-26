@@ -11,10 +11,8 @@ import {
   Image,
 } from "@chakra-ui/react";
 import { toaster } from "../ui/toaster";
-import axios from "axios";
 import InputMask from "react-input-mask";
-
-const API = axios.create({ baseURL: "http://localhost:4000" });
+import API from "../../requests/api";
 
 function Registration() {
   const [phone, setPhone] = useState("");

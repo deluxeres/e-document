@@ -13,11 +13,9 @@ import {
 } from "@chakra-ui/react";
 import { toaster } from "../ui/toaster";
 import { setUser } from "../reducers/userSlice";
-import axios from "axios";
 import InputMask from "react-input-mask";
 import TwoFactorAuth from "../TwoFactorAuth";
-
-const API = axios.create({ baseURL: "http://localhost:4000" });
+import API from "../../requests/api";
 
 function Profile() {
   const { user, token } = useSelector((state) => state.user);

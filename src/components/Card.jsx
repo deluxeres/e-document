@@ -14,9 +14,8 @@ import { useSelector } from "react-redux";
 import { QRCodeSVG } from "qrcode.react";
 import * as htmlToImage from "html-to-image";
 import jsPDF from "jspdf";
-import axios from "axios";
 import { HiOutlineTrash } from "react-icons/hi";
-import { deleteDocument } from "../requests/api";
+import { deleteDocument, getImageAsBase64 } from "../requests/api";
 import { toaster } from "./ui/toaster";
 import ExportDocument from "../dialogs/ExportDocument";
 
@@ -44,9 +43,7 @@ function Card({ documents, onRefresh }) {
       const photoToExport = doc.photo_url || user.photo_url;
 
       if (photoToExport) {
-        const response = await axios.get(
-          `http://localhost:4000/get-base64?url=${encodeURIComponent(photoToExport)}`,
-        );
+        const response = await getImageAsBase64(photoToExport);
         setTempBase64(response.data.base64);
         await new Promise((resolve) => setTimeout(resolve, 400));
       }
@@ -131,7 +128,7 @@ function Card({ documents, onRefresh }) {
 
         {documents.map((doc) => {
           const isCustom = doc.type?.is_custom === 1;
-          const shareUrl = `${window.location.origin}/share/doc/${doc.id}`;
+          const shareUrl = `${window.location.origin}/share/doc/${doc.share_token}`;
 
           const customFields = (doc.custom_fields || []).filter(
             (f) => f.field_name !== "Назва документа",

@@ -22,9 +22,8 @@ import {
   IconButton,
 } from "@chakra-ui/react";
 import { toaster } from "../components/ui/toaster";
-import { createDocument, getDocumentTypes } from "../requests/api";
+import API, { createDocument, getDocumentTypes } from "../requests/api";
 import { useSelector } from "react-redux";
-import axios from "axios";
 
 function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
   const user = useSelector((state) => state.user.user);
@@ -101,10 +100,7 @@ function AddDocumentModal({ isOpen, onClose, onRefresh, existingDocs = [] }) {
 
     setUploading(true);
     try {
-      const { data } = await axios.post(
-        "http://localhost:4000/upload",
-        uploadData,
-      );
+      const { data } = await API.post("/upload", uploadData);
       setDocPhoto(data.url);
       toaster.create({ title: "Фото завантажено", type: "success" });
     } catch (err) {
